@@ -107,8 +107,11 @@ mech_paths = {'after': './with_all_halocarbon_chemistry/maxCarbonAtoms/chemkin/c
              
 "forbidden_group_birad_recomb":
 full_path+'projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group_birad_recomb/chemkin/copies/copy_chem0271.cti',             
-            "editing_mechanism": full_path+'projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group_birad_recomb/chemkin/copies/copy_chem_annotated_edited_test.cti'
-             }
+            "editing_mechanism": full_path+'projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group_birad_recomb/chemkin/copies/copy_chem_annotated_edited_test.cti',
+                          'wthermo':  full_path+'projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/fgbr_westmoreland_thermo/chemkin/copies/copy_chem0238_edited.cti', 
+
+   'pdep_fix_RAMBlib':  '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/pdep_dup_fix_RAMB_as_lib/chemkin/copies/copy_chem0157.cti',
+ 'Brown_diflouromethane_seed': '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/ANL_Brown_smc_RAMB_as_lib/all_non_pdep_as_lib/pdep_dup_fix/seed/chemkin/chem0348_edits.yaml'}
 
 
 def convert_to_Kelvin(temp_C): 
@@ -137,7 +140,7 @@ def run_sim(temp, mech, calculate_sensitivities=False):
                         "O2": 0.20975808, #Total of trace species: 4.02e-4 + 7.50e-4 = 1.152e-3, Remaining fraction for air: 1 - 1.152e-3 = 0.998848, 21% O2, 79% N2
                         "N2": 0.78908992,
                         }
-
+        
     
     #get the temperature profile 
 
@@ -194,16 +197,15 @@ def run_sim(temp, mech, calculate_sensitivities=False):
 
                         reaction_for_sens = gas.reactions()[i]
                         try: 
-                            # sensitivity_to_HF = sim.sensitivity('HF', i) #sensitivity of HF to reaction i 
-                            # sensitivity_to_C2F4 = sim.sensitivity('C2F4', i) #C2F4
-                            # sensitivity_to_CO2 =  sim.sensitivity('CO2', i) #CO2
-                            # sensitivity_to_C2F6 =  sim.sensitivity('C2F6', i)   #C2F6, 
-                            # sensitivity_to_CO =  sim.sensitivity('CO', i) #CO
-                            # sensitivity_to_CF4 = sim.sensitivity('CF4', i) #CF4
-                            # sensitivity_to_COF2 = sim.sensitivity('COF2', i)
+#                             sensitivity_to_HF = sim.sensitivity('HF', i) #sensitivity of HF to reaction i 
+#                             sensitivity_to_C2F4 = sim.sensitivity('C2F4', i) #C2F4
+#                             sensitivity_to_CO2 =  sim.sensitivity('CO2', i) #CO2
+#                             sensitivity_to_C2F6 =  sim.sensitivity('C2F6', i)   #C2F6, 
+#                             sensitivity_to_CO =  sim.sensitivity('CO', i) #CO
+#                             sensitivity_to_CF4 = sim.sensitivity('CF4', i) #CF4
+#                             sensitivity_to_COF2 = sim.sensitivity('COF2', i)
                             
-                            
-                            
+                   
                             
                             sensitivity_to_HF = sim.sensitivity('HF(4)', i) #sensitivity of HF to reaction i 
                             sensitivity_to_C2F4 = sim.sensitivity('C2F4(5)', i) #C2F4
@@ -212,10 +214,24 @@ def run_sim(temp, mech, calculate_sensitivities=False):
                             sensitivity_to_CO =  sim.sensitivity('CO(8)', i) #CO
                             sensitivity_to_CF4 = sim.sensitivity('CF4(9)', i) #CF4
                             sensitivity_to_COF2 = sim.sensitivity('COF2(10)', i)
-                            sensitivity_data.append([sensitivity_to_HF, sensitivity_to_C2F4, sensitivity_to_CO2, sensitivity_to_C2F6, sensitivity_to_CO, sensitivity_to_CF4, sensitivity_to_COF2, reaction_for_sens.equation])
+                            sensitivity_to_CF2 = sim.sensitivity('CF2(15)', i)
+                            
+                            #main 
+#                             sensitivity_to_HF = sim.sensitivity('HF(122)', i) #sensitivity of HF to reaction i 
+#                             sensitivity_to_C2F4 = 0
+#                             sensitivity_to_CO2 =  sim.sensitivity('CO2(13)', i) #CO2
+#                             sensitivity_to_C2F6 = 0
+#                             sensitivity_to_CO =  sim.sensitivity('CO(12)', i) #CO
+#                             sensitivity_to_CF4 = sim.sensitivity('CF4(135)', i) #CF4
+#                             sensitivity_to_COF2 = sim.sensitivity('CF2:O(131)', i)    
+                            
+                            
+                            
+                            
+                            sensitivity_data.append([sensitivity_to_HF, sensitivity_to_C2F4, sensitivity_to_CO2, sensitivity_to_C2F6, sensitivity_to_CO, sensitivity_to_CF4, sensitivity_to_COF2, sensitivity_to_CF2, reaction_for_sens.equation])
                         except Exception as e: 
                             print(e)
-                            sensitivity_data.append([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, reaction_for_sens.equation])
+                            sensitivity_data.append([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, reaction_for_sens.equation])
                         
        
         except Exception as e:
@@ -324,13 +340,13 @@ def run_edited_mech_sim(temp, mech_path, Weber=False, calculate_sensitivities=Fa
     return states, gas, sensitivity_data     
     
     
-temp = 900
+temps = [600, 650, 700, 750, 800, 850, 900, 950]
 #model_path = '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group/chemkin/copies/copy_chem0226.cti'
 #saved in file: sens_data_forbidden_group.txt
 
 
 #model_path = '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/chemkin_for_Weber_2025_12_12/PFAS_O2_H2O_N2O_publish.cti'
-model_path = '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group_birad_recomb/chemkin/copies/copy_chem_annotated_edited_test.cti'
+# model_path = '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/insights_from_Weber/PFOA+Air/fix_reg_spec_in_core/lower_tolerance/forbidden_group_birad_recomb/chemkin/copies/copy_chem_annotated_edited_test.cti'
 
 #saved in file: sens_data_Weber_chatGPT.txt
 
@@ -338,11 +354,11 @@ model_path = '/projects/westgroup/nora/Code/projects/rebasing_PFAS/models/PFAS/i
 
 
 #states, gas, sens_data = run_edited_mech_sim(temp, model_path, Weber=True, calculate_sensitivities=True)
+for temp in temps: 
+    states, gas, sens_data = run_sim(temp, "Brown_diflouromethane_seed", calculate_sensitivities=True)
 
-states, gas, sens_data = run_sim(temp, "editing_mechanism", calculate_sensitivities=True)
-
-with open('sens_data_fbr_edited_mech_900K_center.txt', 'w') as f: 
-    f.write(str(sens_data))
+    with open(f'sens_data_FM_{temp}K.txt', 'w') as f: 
+        f.write(str(sens_data))
 
 # sens_data.sort(key=lambda x: abs(float(x[0])), reverse=True)
 
