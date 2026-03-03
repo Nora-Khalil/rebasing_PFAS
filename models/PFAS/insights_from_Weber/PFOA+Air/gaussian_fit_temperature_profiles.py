@@ -33,6 +33,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython.display import display
 from scipy.odr import ODR, Model, RealData
 from scipy.optimize import least_squares
 
@@ -255,65 +257,123 @@ plt.tight_layout()
 plt.savefig('global_fit_odr_all.png', dpi=150, bbox_inches='tight')
 plt.show()
 
+
 # %% [markdown]
 # ## Individual profile panels with component Gaussians
 
 # %%
-fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
-axes_flat = axes.flatten()
+def plot_individual_profiles_with_components(
+    baseline_, a1_, b1_, mu1_, sigma1_,
+    a2_, b2_, mu2_, sigma2_,
+    a3_, b3_, sigma3_,
+    a4_, b4_, mu4_, sigma4_):
+    fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
+    axes_flat = axes.flatten()
 
-for idx, temp in enumerate(nominal_temperatures):
-    ax = axes_flat[idx]
-    xd, yd = data[temp]
-    color = colors[temp]
+    for idx, temp in enumerate(nominal_temperatures):
+        ax = axes_flat[idx]
+        xd, yd = data[temp]
+        color = colors[temp]
 
-    ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
-                fmt='o', color='black', markersize=3, alpha=0.6,
-                elinewidth=0.5, capsize=0, label='data')
+        ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
+                    fmt='o', color='black', markersize=3, alpha=0.6,
+                    elinewidth=0.5, capsize=0, label='data')
 
-    xn_fine = np.vstack([x_fine, np.full_like(x_fine, temp)])
-    y_fit = sum_of_gaussians_odr(odr_result.beta, xn_fine)
-    ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='ODR fit')
+        y_fit = (baseline_
+                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
+                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
+                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
+                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
+                 + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
+                 + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2))
+        ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='fit')
 
-    # Component Gaussians (shifted up by baseline for display)
-    b_off = baseline
-    g_outer_l  = b_off + a1*(temp-b1)*np.exp(-0.5*((x_fine-(MIDPOINT-mu1))/sigma1)**2)
-    g_outer_r  = b_off + a1*(temp-b1)*np.exp(-0.5*((x_fine-(MIDPOINT+mu1))/sigma1)**2)
-    g_inner_l  = b_off + a2*(temp-b2)*np.exp(-0.5*((x_fine-(MIDPOINT-mu2))/sigma2)**2)
-    g_inner_r  = b_off + a2*(temp-b2)*np.exp(-0.5*((x_fine-(MIDPOINT+mu2))/sigma2)**2)
-    g_center   = b_off + a3*(temp-b3)*np.exp(-0.5*((x_fine-MIDPOINT)/sigma3)**2)
-    g_shoulder = b_off + a4*(temp-b4)*np.exp(-0.5*((x_fine-mu4)/sigma4)**2)
+        b_off = baseline_
+        g_outer_l = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
+        g_outer_r = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
+        g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
+        g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
+        g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
+        g_shoulder = b_off + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2)
 
-    ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
-            label=f'outer ({MIDPOINT-mu1:.0f} cm)')
-    ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
-    ax.plot(x_fine, g_inner_l, '-.', color='gray', lw=1, alpha=0.5,
-            label=f'inner ({MIDPOINT-mu2:.0f} cm)')
-    ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
-    ax.plot(x_fine, g_center,  '-', color='blue', lw=1, alpha=0.4,
-            label='center')
-    ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
-            label=f'shoulder ({mu4:.0f} cm)')
+        ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
+                label=f'outer ({MIDPOINT-mu1_:.0f} cm)')
+        ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
+        ax.plot(x_fine, g_inner_l, '-.', color='gray', lw=1, alpha=0.5,
+                label=f'inner ({MIDPOINT-mu2_:.0f} cm)')
+        ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
+        ax.plot(x_fine, g_center, '-', color='blue', lw=1, alpha=0.4, label='center')
+        ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
+                label=f'shoulder ({mu4_:.0f} cm)')
 
-    ax.set_title(f'{temp} C', fontweight='bold')
-    ax.set_xlim(0, 60)
-    if idx == 0:
-        ax.legend(fontsize=6, loc='upper left')
-    if idx >= 4:
-        ax.set_xlabel('Distance (cm)')
-    ax.set_ylabel('T (C)')
+        ax.set_title(f'{temp} C', fontweight='bold')
+        ax.set_xlim(0, 60)
+        if idx == 0:
+            ax.legend(fontsize=6, loc='upper left')
+        if idx >= 4:
+            ax.set_xlabel('Distance (cm)')
+        ax.set_ylabel('T (C)')
 
-for idx in range(len(nominal_temperatures), len(axes_flat)):
-    axes_flat[idx].set_visible(False)
+    for idx in range(len(nominal_temperatures), len(axes_flat)):
+        axes_flat[idx].set_visible(False)
 
-plt.suptitle('Global fit (ODR): individual profiles with components',
-             fontweight='bold', fontsize=14)
-plt.tight_layout()
-plt.savefig('global_fit_odr_individual.png', dpi=150, bbox_inches='tight')
-plt.show()
+    plt.suptitle('Interactive global fit: individual profiles with components',
+                 fontweight='bold', fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+    print('Selected parameter values:')
+    print(f'baseline={baseline_:.4f}, a1={a1_:.4f}, b1={b1_:.4f}, mu1={mu1_:.4f}, sigma1={sigma1_:.4f}')
+    print(f'a2={a2_:.4f}, b2={b2_:.4f}, mu2={mu2_:.4f}, sigma2={sigma2_:.4f}')
+    print(f'a3={a3_:.4f}, b3={b3_:.4f}, sigma3={sigma3_:.4f}')
+    print(f'a4={a4_:.4f}, b4={b4_:.4f}, mu4={mu4_:.4f}, sigma4={sigma4_:.4f}')
+
+
+slider_style = {'description_width': '80px'}
+layout = widgets.Layout(width='380px')
+
+w_baseline = widgets.FloatSlider(value=float(baseline), min=0.0, max=120.0, step=0.1, description='baseline', style=slider_style, layout=layout)
+w_a1 = widgets.FloatSlider(value=float(a1), min=0.001, max=20.0, step=0.001, description='a1', style=slider_style, layout=layout)
+w_b1 = widgets.FloatSlider(value=float(b1), min=-5000.0, max=800.0, step=1.0, description='b1', style=slider_style, layout=layout)
+w_mu1 = widgets.FloatSlider(value=float(mu1), min=5.0, max=28.0, step=0.1, description='mu1', style=slider_style, layout=layout)
+w_sigma1 = widgets.FloatSlider(value=float(sigma1), min=1.5, max=15.0, step=0.1, description='sigma1', style=slider_style, layout=layout)
+
+w_a2 = widgets.FloatSlider(value=float(a2), min=0.001, max=20.0, step=0.001, description='a2', style=slider_style, layout=layout)
+w_b2 = widgets.FloatSlider(value=float(b2), min=-5000.0, max=800.0, step=1.0, description='b2', style=slider_style, layout=layout)
+w_mu2 = widgets.FloatSlider(value=float(mu2), min=0.0, max=14.0, step=0.1, description='mu2', style=slider_style, layout=layout)
+w_sigma2 = widgets.FloatSlider(value=float(sigma2), min=1.5, max=15.0, step=0.1, description='sigma2', style=slider_style, layout=layout)
+
+w_a3 = widgets.FloatSlider(value=float(a3), min=0.001, max=20.0, step=0.001, description='a3', style=slider_style, layout=layout)
+w_b3 = widgets.FloatSlider(value=float(b3), min=-5000.0, max=800.0, step=1.0, description='b3', style=slider_style, layout=layout)
+w_sigma3 = widgets.FloatSlider(value=float(sigma3), min=1.5, max=15.0, step=0.1, description='sigma3', style=slider_style, layout=layout)
+
+w_a4 = widgets.FloatSlider(value=float(a4), min=0.001, max=20.0, step=0.001, description='a4', style=slider_style, layout=layout)
+w_b4 = widgets.FloatSlider(value=float(b4), min=-5000.0, max=800.0, step=1.0, description='b4', style=slider_style, layout=layout)
+w_mu4 = widgets.FloatSlider(value=float(mu4), min=8.0, max=52.0, step=0.1, description='mu4', style=slider_style, layout=layout)
+w_sigma4 = widgets.FloatSlider(value=float(sigma4), min=1.5, max=15.0, step=0.1, description='sigma4', style=slider_style, layout=layout)
+
+controls = widgets.HBox([
+    widgets.VBox([w_baseline, w_a1, w_b1, w_mu1, w_sigma1, w_a2, w_b2, w_mu2]),
+    widgets.VBox([w_sigma2, w_a3, w_b3, w_sigma3, w_a4, w_b4, w_mu4, w_sigma4])
+])
+
+out = widgets.interactive_output(
+    plot_individual_profiles_with_components,
+    {
+        'baseline_': w_baseline, 'a1_': w_a1, 'b1_': w_b1, 'mu1_': w_mu1, 'sigma1_': w_sigma1,
+        'a2_': w_a2, 'b2_': w_b2, 'mu2_': w_mu2, 'sigma2_': w_sigma2,
+        'a3_': w_a3, 'b3_': w_b3, 'sigma3_': w_sigma3,
+        'a4_': w_a4, 'b4_': w_b4, 'mu4_': w_mu4, 'sigma4_': w_sigma4
+    }
+)
+
+display(widgets.HTML('<h4>Adjust fit parameters</h4>'))
+display(controls, out)
 
 # %% [markdown]
 # ## Comparison: LS vs ODR parameters
+
+# %%
 
 # %%
 print("Comparison of parameters:")
