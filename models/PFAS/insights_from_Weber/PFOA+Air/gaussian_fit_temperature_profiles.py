@@ -13,18 +13,21 @@
 # ---
 
 # %% [markdown]
-# # Global Fit of Temperature Profiles with Symmetric Sum of Gaussians
+# # Global Fit of Temperature Profiles (v2)
 #
-# All seven temperature profiles (800-1100 C) are fit simultaneously
-# with a single set of 9 parameters. The profile is symmetric about
-# the midpoint (30 cm), with Gaussian amplitudes that scale linearly
-# with (nominal_temperature - offset).
+# Improvements over v1:
+#   - Extra Gaussian at the midpoint (30 cm) to fill the central dip
+#   - Extra non-symmetric Gaussian near 15 cm to capture the front shoulder
 #
-# Model function:
+# 13 shared parameters total, fit to all 7 profiles simultaneously.
+#
+# Model:
 #
 # T(x, nominal) = baseline
-#     + a1*(nominal - b1) * [G(x, midpoint-mu1, sigma1) + G(x, midpoint+mu1, sigma1)]
-#     + a2*(nominal - b2) * [G(x, midpoint-mu2, sigma2) + G(x, midpoint+mu2, sigma2)]
+#     + a1*(nominal - b1) * [G(x, 30-mu1, sigma1) + G(x, 30+mu1, sigma1)]   # symmetric outer pair
+#     + a2*(nominal - b2) * [G(x, 30-mu2, sigma2) + G(x, 30+mu2, sigma2)]   # symmetric inner pair
+#     + a3*(nominal - b3) * G(x, 30, sigma3)                                  # center fill
+#     + a4*(nominal - b4) * G(x, mu4, sigma4)                                 # asymmetric shoulder (not pinned to midpoint)
 
 # %%
 import numpy as np
@@ -53,32 +56,36 @@ for temp in nominal_temperatures:
     data[temp] = (distances[order], temperatures_at_distances[order])
 
 # %% [markdown]
-# ## Define the symmetric sum-of-Gaussians model
+# ## Model definition
 
 # %%
 MIDPOINT = 30.0
 
 def sum_of_gaussians(x, nominal, baseline,
                      a1, b1, mu1, sigma1,
-                     a2, b2, mu2, sigma2):
-    """Symmetrical sum of 4 Gaussians plus a constant baseline.
-
-    The 4 Gaussians are placed symmetrically about the midpoint (30 cm):
-      - outer pair at midpoint +/- mu1, amplitude a1*(nominal - b1)
-      - inner pair at midpoint +/- mu2, amplitude a2*(nominal - b2)
+                     a2, b2, mu2, sigma2,
+                     a3, b3, sigma3,
+                     a4, b4, mu4, sigma4):
     """
-    midpoint = MIDPOINT
+    Symmetric pair (outer) + symmetric pair (inner) + center fill + asymmetric shoulder.
+    """
+    mid = MIDPOINT
     return (baseline
-            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (midpoint - mu1)) / sigma1) ** 2)
-            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (midpoint - mu2)) / sigma2) ** 2)
-            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (midpoint + mu2)) / sigma2) ** 2)
-            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (midpoint + mu1)) / sigma1) ** 2))
+            # symmetric outer pair at mid +/- mu1
+            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (mid - mu1)) / sigma1) ** 2)
+            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (mid + mu1)) / sigma1) ** 2)
+            # symmetric inner pair at mid +/- mu2
+            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (mid - mu2)) / sigma2) ** 2)
+            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
+            # center Gaussian at midpoint
+            + a3 * (nominal - b3) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
+            # asymmetric front shoulder
+            + a4 * (nominal - b4) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
 
 # %% [markdown]
-# ## Build the global residual vector and optimize
+# ## Build global residual and optimize
 
 # %%
-# Stack all data for the global fit
 x_all = []
 y_all = []
 nominal_all = []
@@ -93,41 +100,62 @@ y_all = np.concatenate(y_all)
 nominal_all = np.concatenate(nominal_all)
 
 def residuals(params):
-    baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2 = params
+    (baseline,
+     a1, b1, mu1, sigma1,
+     a2, b2, mu2, sigma2,
+     a3, b3, sigma3,
+     a4, b4, mu4, sigma4) = params
     y_pred = sum_of_gaussians(x_all, nominal_all, baseline,
                                a1, b1, mu1, sigma1,
-                               a2, b2, mu2, sigma2)
+                               a2, b2, mu2, sigma2,
+                               a3, b3, sigma3,
+                               a4, b4, mu4, sigma4)
     return y_pred - y_all
 
-# Multi-start optimization with physically motivated initial guesses.
-#        baseline  a1         b1          mu1     sigma1   a2         b2          mu2     sigma2
-bounds = [(0, 80), (0.001, 20), (-5000, 800), (8, 28), (1.5, 15), (0.001, 20), (-5000, 800), (0, 14), (1.5, 15)]
+# Parameter bounds
+#                baseline   a1         b1           mu1      sigma1
+#                           a2         b2           mu2      sigma2
+#                           a3         b3           sigma3
+#                           a4         b4           mu4      sigma4
+lower = np.array([0,        0.001,    -5000,        5,       1.5,
+                             0.001,    -5000,        0,       1.5,
+                             0.001,    -5000,                 1.5,
+                             0.001,    -5000,        8,       1.5])
+upper = np.array([80,       20,        800,         28,      15,
+                             20,        800,         14,      15,
+                             20,        800,                  15,
+                             20,        800,         52,      15])
 
-lower_b = [b[0] for b in bounds]
-upper_b = [b[1] for b in bounds]
-
+# Multi-start
 best_cost = np.inf
 best_result = None
 
 initial_guesses = [
-    [25.0,  0.5,   100.0, 15.0, 4.0,  0.8,   100.0, 4.0, 4.5],
-    [25.0,  0.3,  -100.0, 12.0, 3.0,  0.5,  -100.0, 3.0, 5.0],
-    [30.0,  1.0,   300.0, 15.0, 5.0,  0.6,     0.0, 5.0, 4.0],
-    [25.0,  0.2,  -200.0, 14.0, 4.5,  0.7,   200.0, 4.0, 5.0],
-    [20.0,  0.8,   400.0, 12.0, 3.5,  0.4,  -300.0, 2.0, 6.0],
-    [25.0,  0.15, -400.0, 13.0, 5.0,  0.5,     0.0, 3.5, 4.5],
-    [30.0,  0.4,   200.0, 10.0, 5.5,  0.9,   300.0, 5.0, 3.5],
-    [20.0,  2.0,   700.0, 10.0, 5.0,  0.3,  -800.0, 4.0, 4.0],
-    [25.0,  0.1, -1000.0, 15.0, 5.0,  0.05,-1500.0, 4.0, 5.0],
-    [25.0,  5.0,   750.0, 12.0, 4.0,  0.2, -1000.0, 3.0, 5.0],
-    [25.0,  0.05,-3000.0, 12.0, 5.0,  0.03,-4000.0, 4.0, 4.0],
-    [25.0,  3.0,   780.0, 10.0, 6.0,  0.1, -2000.0, 3.0, 4.0],
+    # baseline, a1,   b1,     mu1,  s1,   a2,   b2,     mu2,  s2,   a3,   b3,    s3,   a4,   b4,    mu4,  s4
+    [25,        1.0,  700,    10,   5,    0.3,  -1000,  4,    4,    0.5,  -500,  3,    0.3,   500,  15,   3],
+    [25,        0.5,  400,    12,   4,    0.2,  -2000,  3,    5,    0.8,  -200,  4,    0.5,   300,  14,   4],
+    [25,        2.0,  750,    10,   6,    0.1,  -3000,  4,    4,    0.3,  -1000, 5,    0.2,   600,  16,   3],
+    [30,        0.8,  500,    15,   5,    0.5,  -500,   5,    4,    1.0,   0,    4,    0.1,   200,  13,   5],
+    [20,        1.5,  780,    9,    5,    0.05, -4000,  4,    4,    0.2,  -2000, 4,    0.5,   700,  15,   2],
+    [25,        0.3,  200,    12,   4,    0.4,  -800,   3,    5,    0.6,  -300,  3,    0.4,   400,  16,   4],
+    [25,        1.2,  600,    11,   5,    0.15, -2500,  4,    4,    0.4,  -1500, 5,    0.3,   500,  14,   3],
+    [25,        0.7,  300,    13,   4,    0.3,  -1500,  3,    4,    0.9,  -100,  3,    0.2,   350,  17,   3],
+    # right-side shoulder guesses (mu4 ~ 40-45 cm)
+    [25,        1.0,  700,    10,   5,    0.1,  -2000,  4,    4,    0.5,  -200,  4,    0.5,   700,  42,   4],
+    [25,        1.5,  780,    10,   5,    0.05, -3000,  4,    4,    0.4,  -500,  4,    1.0,   750,  45,   5],
+    [25,        0.8,  600,    11,   5,    0.2,  -1000,  5,    3,    0.6,  -100,  3,    0.8,   650,  40,   5],
+    # left shoulder
+    [25,        1.0,  700,    10,   5,    0.1,  -2000,  4,    4,    0.5,  -200,  4,    1.0,   700,  15,   4],
+    [25,        1.5,  780,    10,   5,    0.05, -3000,  4,    4,    0.4,  -500,  4,    2.0,   750,  14,   3],
+    # broad middle shoulder
+    [25,        1.0,  700,    10,   5,    0.1,  -2000,  4,    4,    0.5,  -200,  4,    0.3,   600,  35,   8],
+    [25,        1.2,  750,    10,   5,    0.08, -2500,  4,    4,    0.4,  -300,  4,    0.5,   700,  38,   6],
 ]
 
 for i, p0 in enumerate(initial_guesses):
     try:
-        res = least_squares(residuals, p0, bounds=(lower_b, upper_b),
-                            method='trf', max_nfev=200000)
+        res = least_squares(residuals, p0, bounds=(lower, upper),
+                            method='trf', max_nfev=500000)
         if res.cost < best_cost:
             best_cost = res.cost
             best_result = res
@@ -138,26 +166,34 @@ for i, p0 in enumerate(initial_guesses):
         print(f"  Guess {i}: failed ({e})")
 
 result = best_result
-baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2 = result.x
+(baseline,
+ a1, b1, mu1, sigma1,
+ a2, b2, mu2, sigma2,
+ a3, b3, sigma3,
+ a4, b4, mu4, sigma4) = result.x
 
-print(f"\nBest optimization result (cost = {result.cost:.1f}):")
+print(f"\nBest result (cost = {result.cost:.1f}):")
 print(f"  baseline = {baseline:.2f} C")
-print(f"  Outer Gaussians: a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
-print(f"  Inner Gaussians: a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
-print(f"\n  Gaussian centers (relative to midpoint={MIDPOINT} cm):")
-print(f"    Outer pair at {MIDPOINT - mu1:.1f} and {MIDPOINT + mu1:.1f} cm")
-print(f"    Inner pair at {MIDPOINT - mu2:.1f} and {MIDPOINT + mu2:.1f} cm")
-
-# Per-profile RMSE
+print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
+print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
+print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
+print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
+print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
+print(f"  Asym. shoulder: a4={a4:.4f}, b4={b4:.1f}, mu4={mu4:.2f} cm, sigma4={sigma4:.2f} cm")
 print()
+
 for temp in nominal_temperatures:
     xd, yd = data[temp]
-    y_pred = sum_of_gaussians(xd, temp, baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2)
+    y_pred = sum_of_gaussians(xd, temp, baseline,
+                               a1, b1, mu1, sigma1,
+                               a2, b2, mu2, sigma2,
+                               a3, b3, sigma3,
+                               a4, b4, mu4, sigma4)
     rmse = np.sqrt(np.mean((y_pred - yd) ** 2))
     print(f"  T={temp} C:  RMSE = {rmse:.1f} C")
 
 # %% [markdown]
-# ## Plot: all profiles, data (points) vs. global fit (lines)
+# ## Plot: all profiles overlay
 
 # %%
 colors = {800: '#4472C4',
@@ -175,15 +211,17 @@ fig, ax = plt.subplots(figsize=(10, 6))
 for temp in nominal_temperatures:
     xd, yd = data[temp]
     color = colors[temp]
-
     ax.plot(xd, yd, 'o', color=color, markersize=4, alpha=0.8)
-
-    y_fit = sum_of_gaussians(x_fine, temp, baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2)
+    y_fit = sum_of_gaussians(x_fine, temp, baseline,
+                              a1, b1, mu1, sigma1,
+                              a2, b2, mu2, sigma2,
+                              a3, b3, sigma3,
+                              a4, b4, mu4, sigma4)
     ax.plot(x_fine, y_fit, '-', color=color, linewidth=1.5, label=f'{temp} C')
 
 ax.set_xlabel('Distance into reactor (cm)', fontweight='bold')
 ax.set_ylabel('Temperature (C)', fontweight='bold')
-ax.set_title('Global fit: 9 shared parameters, symmetric about 30 cm', fontweight='bold')
+ax.set_title('Global fit v2: 13 parameters, center fill + asymmetric shoulder', fontweight='bold')
 ax.legend(loc='upper left')
 ax.set_xlim(0, 60)
 ax.set_ylim(0, None)
@@ -191,14 +229,14 @@ for label in ax.get_xticklabels() + ax.get_yticklabels():
     label.set_fontweight('bold')
 
 plt.tight_layout()
-plt.savefig('global_fit_all_profiles.png', dpi=150, bbox_inches='tight')
+plt.savefig('global_fit_v2_all.png', dpi=150, bbox_inches='tight')
 plt.show()
 
 # %% [markdown]
-# ## Individual profile panels with component Gaussians
+# ## Individual panels with component Gaussians
 
 # %%
-fig, axes = plt.subplots(3, 3, figsize=(14, 12), sharex=True)
+fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
 axes_flat = axes.flatten()
 
 for idx, temp in enumerate(nominal_temperatures):
@@ -208,24 +246,38 @@ for idx, temp in enumerate(nominal_temperatures):
 
     ax.plot(xd, yd, 'o', color='black', markersize=4, label='data')
 
-    y_fit = sum_of_gaussians(x_fine, temp, baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2)
-    ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='global fit')
+    y_fit = sum_of_gaussians(x_fine, temp, baseline,
+                              a1, b1, mu1, sigma1,
+                              a2, b2, mu2, sigma2,
+                              a3, b3, sigma3,
+                              a4, b4, mu4, sigma4)
+    ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='total fit')
 
-    # Show the 4 component Gaussians (each shifted up by baseline for visual clarity)
-    g_outer_left  = baseline + a1 * (temp - b1) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1)) / sigma1) ** 2)
-    g_inner_left  = baseline + a2 * (temp - b2) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2)) / sigma2) ** 2)
-    g_inner_right = baseline + a2 * (temp - b2) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2)) / sigma2) ** 2)
-    g_outer_right = baseline + a1 * (temp - b1) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1)) / sigma1) ** 2)
+    # Component Gaussians (shifted up by baseline for display)
+    b_off = baseline
 
-    ax.plot(x_fine, g_outer_left,  '--', color='gray', linewidth=1, alpha=0.6, label=f'outer ({MIDPOINT-mu1:.0f} cm)')
-    ax.plot(x_fine, g_inner_left,  '-.', color='gray', linewidth=1, alpha=0.6, label=f'inner ({MIDPOINT-mu2:.0f} cm)')
-    ax.plot(x_fine, g_inner_right, '-.', color='gray', linewidth=1, alpha=0.6)
-    ax.plot(x_fine, g_outer_right, '--', color='gray', linewidth=1, alpha=0.6)
+    g_outer_l = b_off + a1*(temp-b1)*np.exp(-0.5*((x_fine-(MIDPOINT-mu1))/sigma1)**2)
+    g_outer_r = b_off + a1*(temp-b1)*np.exp(-0.5*((x_fine-(MIDPOINT+mu1))/sigma1)**2)
+    g_inner_l = b_off + a2*(temp-b2)*np.exp(-0.5*((x_fine-(MIDPOINT-mu2))/sigma2)**2)
+    g_inner_r = b_off + a2*(temp-b2)*np.exp(-0.5*((x_fine-(MIDPOINT+mu2))/sigma2)**2)
+    g_center  = b_off + a3*(temp-b3)*np.exp(-0.5*((x_fine-MIDPOINT)/sigma3)**2)
+    g_shoulder = b_off + a4*(temp-b4)*np.exp(-0.5*((x_fine-mu4)/sigma4)**2)
+
+    ax.plot(x_fine, g_outer_l, '--', color='gray', linewidth=1, alpha=0.5,
+            label=f'outer ({MIDPOINT-mu1:.0f} cm)')
+    ax.plot(x_fine, g_outer_r, '--', color='gray', linewidth=1, alpha=0.5)
+    ax.plot(x_fine, g_inner_l, '-.', color='gray', linewidth=1, alpha=0.5,
+            label=f'inner ({MIDPOINT-mu2:.0f} cm)')
+    ax.plot(x_fine, g_inner_r, '-.', color='gray', linewidth=1, alpha=0.5)
+    ax.plot(x_fine, g_center,  '-', color='blue', linewidth=1, alpha=0.4,
+            label='center')
+    ax.plot(x_fine, g_shoulder, '-', color='red', linewidth=1, alpha=0.4,
+            label=f'shoulder ({mu4:.0f} cm)')
 
     ax.set_title(f'{temp} C', fontweight='bold')
     ax.set_xlim(0, 60)
     if idx == 0:
-        ax.legend(fontsize=7, loc='upper left')
+        ax.legend(fontsize=6, loc='upper left')
     if idx >= 4:
         ax.set_xlabel('Distance (cm)')
     ax.set_ylabel('T (C)')
@@ -233,27 +285,23 @@ for idx, temp in enumerate(nominal_temperatures):
 for idx in range(len(nominal_temperatures), len(axes_flat)):
     axes_flat[idx].set_visible(False)
 
-plt.suptitle('Global fit: individual profiles with component Gaussians', fontweight='bold', fontsize=14)
+plt.suptitle('Global fit v2: individual profiles with components', fontweight='bold', fontsize=14)
 plt.tight_layout()
-plt.savefig('global_fit_individual.png', dpi=150, bbox_inches='tight')
+plt.savefig('global_fit_v2_individual.png', dpi=150, bbox_inches='tight')
 plt.show()
 
 # %% [markdown]
-# ## Print the fitted function for use in other scripts
+# ## Fitted function for use in other scripts
 
 # %%
-print("Fitted parameters:")
-print(f"  MIDPOINT = {MIDPOINT}")
-print(f"  baseline = {baseline:.4f}")
-print(f"  a1 = {a1:.6f},  b1 = {b1:.4f},  mu1 = {mu1:.4f},  sigma1 = {sigma1:.4f}")
-print(f"  a2 = {a2:.6f},  b2 = {b2:.4f},  mu2 = {mu2:.4f},  sigma2 = {sigma2:.4f}")
-print()
 print("def T_profile(x, nominal):")
-print(f"    midpoint = {MIDPOINT}")
+print(f"    mid = {MIDPOINT}")
 print(f"    return ({baseline:.4f}")
-print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5 * ((x - {MIDPOINT - mu1:.4f}) / {sigma1:.4f})**2)")
-print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5 * ((x - {MIDPOINT - mu2:.4f}) / {sigma2:.4f})**2)")
-print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5 * ((x - {MIDPOINT + mu2:.4f}) / {sigma2:.4f})**2)")
-print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5 * ((x - {MIDPOINT + mu1:.4f}) / {sigma1:.4f})**2))")
+print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5*((x - (mid - {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5*((x - (mid + {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5*((x - (mid - {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5*((x - (mid + {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a3:.6f} * (nominal - ({b3:.4f})) * np.exp(-0.5*((x - mid)/{sigma3:.4f})**2)")
+print(f"        + {a4:.6f} * (nominal - ({b4:.4f})) * np.exp(-0.5*((x - {mu4:.4f})/{sigma4:.4f})**2))")
 
 # %%
