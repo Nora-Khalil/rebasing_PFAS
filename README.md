@@ -1,6 +1,43 @@
 # rebasing_PFAS
 Repository used to investigate bugs for rebasing my PFAS/CH2F2 RMG-database. 
 
+## Notebook Sync Workflow (Jupytext)
+
+This repository uses Jupytext pairing at the repository level (`.jupytext.toml`) with:
+
+- `ipynb`
+- `py:percent`
+
+So each notebook can have a paired `.py` text representation.
+
+### Make targets
+
+From repo root:
+
+- `make check` — list pairing status for all notebooks (`PAIRED`/`UNPAIRED`) and print a summary.
+- `make py` — create paired `.py` files for notebooks that do not yet have one.
+- `make sync` — sync all paired notebooks and scripts in both directions.
+- `make run` — execute all notebooks in place using `jupyter nbconvert --execute`.
+
+All targets scan all folders and skip hidden/checkpoint directories (e.g., `.ipynb_checkpoints`, `.git`, and other `.*` dirs).
+
+### Recommended git workflow
+
+1. Before editing notebooks: run `make check`.
+2. If any notebooks are unpaired: run `make py` once.
+3. After notebook/script edits: run `make sync` to ensure `.ipynb` and `.py` match.
+4. Optionally validate execution: run `make run`.
+5. Commit both notebook and paired script changes together in the same commit.
+
+Suggested quick sequence:
+
+```bash
+make check
+make py
+make sync
+git status
+```
+
 
 ## Background & Issue
 
