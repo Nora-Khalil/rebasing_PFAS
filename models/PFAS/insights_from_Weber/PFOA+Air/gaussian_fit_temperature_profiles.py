@@ -43,7 +43,7 @@ from scipy.optimize import least_squares
 temperature_profiles = pd.read_csv('temperature_profiles_from_literature.csv')
 
 nominal_temperatures = list(range(800, 1150, 50))
-nominal_cooler_temperatures = list(range(400, 750, 50))
+nominal_cooler_temperatures = list(range(400, 799, 50))
 
 data = {}
 for temp in nominal_temperatures:
@@ -84,12 +84,12 @@ def sum_of_gaussians_odr(params, x_and_nominal):
     mid = MIDPOINT
 
     return (baseline
-            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (mid - mu1)) / sigma1) ** 2)
-            + a1 * (nominal - b1) * np.exp(-0.5 * ((x - (mid + mu1)) / sigma1) ** 2)
-            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (mid - mu2)) / sigma2) ** 2)
-            + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
-            + a3 * (nominal - b3) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
-            + a4 * (nominal - b4) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
+            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (mid - mu1)) / sigma1) ** 2)
+            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (mid + mu1)) / sigma1) ** 2)
+            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid - mu2)) / sigma2) ** 2)
+            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
+            + a3 * np.clip(nominal - b3, 0, np.inf) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
+            + a4 * np.clip(nominal - b4, 0, np.inf) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
 
 def report_parameters(params, cost=None):
     (baseline,
@@ -145,14 +145,9 @@ def plot_individual_profiles_with_components(params, errors=None):
                             elinewidth=0.5, capsize=0, label='data')
             else:
                 ax.plot(xd, yd, 'o', color='black', markersize=3, alpha=0.6, label='data')
+        x_and_nominal = np.array([x_fine, np.full_like(x_fine, temp)])
+        y_fit = sum_of_gaussians_odr(params, x_and_nominal)
 
-        y_fit = (baseline_
-                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
-                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
-                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
-                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
-                 + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
-                 + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2))
         ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='fit')
 
         b_off = baseline_
