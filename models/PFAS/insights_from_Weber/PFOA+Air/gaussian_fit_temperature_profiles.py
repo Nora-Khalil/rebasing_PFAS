@@ -417,5 +417,15 @@ print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({
 print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} + {mu2:.4f}))/{sigma2:.4f})**2)")
 print(f"        + {a3:.6f} * max(nominal - ({b3:.4f}), 0) * np.exp(-0.5*((x - {MIDPOINT})/{sigma3:.4f})**2)")
 
+print("\n\n# to work on an array of nominal temperatures:")
+print("\ndef T_profile(x, nominal):")
+print(f"    return ({baseline:.4f}")
+print(f"        + {a1:.6f} * np.clip(nominal - ({b1:.4f}), 0, np.inf) * np.exp(-0.5*((x - ({MIDPOINT} - {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a1:.6f} * np.clip(nominal - ({b1:.4f}), 0, np.inf) * np.exp(-0.5*((x - ({MIDPOINT} + {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a2:.6f} * np.clip(nominal - ({b2:.4f}), 0, np.inf) * np.exp(-0.5*((x - ({MIDPOINT} - {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a2:.6f} * np.clip(nominal - ({b2:.4f}), 0, np.inf) * np.exp(-0.5*((x - ({MIDPOINT} + {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a3:.6f} * np.clip(nominal - ({b3:.4f}), 0, np.inf) * np.exp(-0.5*((x - {MIDPOINT})/{sigma3:.4f})**2)")
+
+
 
 # %%
