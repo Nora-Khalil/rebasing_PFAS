@@ -127,40 +127,40 @@ class PFR_Reactor(ct.ExtensibleIdealGasConstPressureMoleReactor):
         self.nominal_temp_C = nominal_temp_C
         self.mass_flow_rate = mass_flow_rate      # kg/s (constant)
         self.cross_section_area = cross_section_area  # m^2 (constant)
-        self.x = 0.0  # current position in m
+        self.position = 0.0  # current position in m
 
     def after_initialize(self, t0):
-        """Called after the base class initialize. Register extra state variable."""
+        """Called after initialize. Register extra state variable."""
+        if t0 != 0:
+            raise ValueError(f"Expected initialization time t0=0, got t0={t0}")
         # Add one extra equation for position x
-        self.n_extra = 1
+        self.n_vars += 1
+        self.i_position = self.n_vars - 1  # index of the position variable
+        self.position = 0.0
 
     def after_get_state(self, y):
         """Append x to the state vector."""
-        y[self.n_vars - 1] = self.x
+        y[self.n_vars - 1] = self.position
 
     def after_update_state(self, y):
         """Read x back from the state vector."""
-        self.x = y[self.n_vars - 1]
+        self.position = y[self.i_position]
 
-    def replace_component_name(self, i):
-        """Name the extra component."""
-        if i == self.n_vars - 1:
-            return 'position'
-        # Fall through to base class for other components
-        return self.component_name(i)
-
-    def after_component_index(self, name):
-        """Return index for the extra component."""
-
-    def replace_component_index(self, name):
-        """Return index for named components."""
+    def before_component_index(self, name):
+        # Other components are handled by the method from the base Reactor class
         if name == 'position':
-            return self.n_vars - 1
+            return self.i_position
+
+    def before_component_name(self, i):
+        # Other components are handled by the method from the base Reactor class
+        if i == self.i_position:
+            return 'position'
+
 
     def after_eval(self, t, LHS, RHS):
         """Modify the RHS to impose the temperature profile and add dx/dt = u."""
         # Current position from the state
-        x_m = self.x
+        x_m = self.position
 
         # Current velocity: u = mdot / (rho * A)
         rho = self.density
@@ -292,23 +292,25 @@ for nominal_T_C in nominal_temperatures:
         sim.advance(t_i)
 
         t_array[n] = sim.time
-        x_array[n] = reactor.x
+        x_array[n] = reactor.position
         T_array[n] = reactor.phase.T
         states.append(reactor.phase.state)
 
         # Stop if we've passed the end of the reactor
-        if reactor.x >= length:
+        if reactor.position >= length:
             t_array = t_array[:n+1]
             x_array = x_array[:n+1]
             T_array = T_array[:n+1]
             print(f"  Reached end of reactor at step {n+1}, "
-                  f"t = {sim.time:.6f} s, x = {reactor.x:.4f} m")
+                  f"t = {sim.time:.6f} s, x = {reactor.position:.4f} m")
             break
     else:
-        print(f"  Final position: x = {reactor.x:.4f} m (target: {length:.4f} m)")
-        if reactor.x < length * 0.95:
-            print(f"  WARNING: Did not reach end of reactor. "
-                  f"Consider increasing n_steps or t_total_est.")
+        print(f"  Final position: x = {reactor.position:.4f} m (target: {length:.4f} m)")
+        if reactor.position < length * 0.95:
+            print(
+                "  WARNING: Did not reach end of reactor. "
+                "Consider increasing n_steps or t_total_est."
+            )
 
     results[nominal_T_C] = {
         't': t_array,
