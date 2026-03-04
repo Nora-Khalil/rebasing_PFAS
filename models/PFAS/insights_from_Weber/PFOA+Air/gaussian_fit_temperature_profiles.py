@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -43,6 +43,7 @@ from scipy.optimize import least_squares
 temperature_profiles = pd.read_csv('temperature_profiles_from_literature.csv')
 
 nominal_temperatures = list(range(800, 1150, 50))
+nominal_cooler_temperatures = list(range(400, 750, 50))
 
 data = {}
 for temp in nominal_temperatures:
@@ -75,7 +76,8 @@ def sum_of_gaussians_odr(params, x_and_nominal):
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
-     a4, b4, mu4, sigma4) = params
+     a4, b4, mu4, sigma4
+     ) = params
 
     x = x_and_nominal[0]
     nominal = x_and_nominal[1]
@@ -88,6 +90,103 @@ def sum_of_gaussians_odr(params, x_and_nominal):
             + a2 * (nominal - b2) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
             + a3 * (nominal - b3) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
             + a4 * (nominal - b4) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
+
+def report_parameters(params, cost=None):
+    (baseline,
+     a1, b1, mu1, sigma1,
+     a2, b2, mu2, sigma2,
+     a3, b3, sigma3,
+     a4, b4, mu4, sigma4
+     ) = params
+    if cost:
+       print(f"Cost: {cost:.4f}")
+    print(f"\nFitted parameters:")
+    print(f"  baseline = {baseline:.2f} C")
+    print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
+    print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
+    print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
+    print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
+    print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
+    print(f"  Asym. shoulder: a4={a4:.4f}, b4={b4:.1f}, mu4={mu4:.2f} cm, sigma4={sigma4:.2f} cm")
+
+# %%
+colors = {800: '#4472C4',
+          850: '#EE7D31',
+          900: '#A5A5A5',
+          950: '#FFC002',
+          1000: '#5B9CD5',
+          1050: '#70AE47',
+          1100: '#264479'}
+
+x_fine = np.linspace(0, 60, 300)
+
+def plot_individual_profiles_with_components(params, errors=None):
+    (baseline_, a1_, b1_, mu1_, sigma1_,
+    a2_, b2_, mu2_, sigma2_,
+    a3_, b3_, sigma3_,
+    a4_, b4_, mu4_, sigma4_) = params
+    fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
+    axes_flat = axes.flatten()
+
+    for idx, temp in enumerate(nominal_temperatures):
+        ax = axes_flat[idx]
+        xd, yd = data[temp]
+        color = colors[temp]
+
+        if errors:
+            sx_dist, sy_temp = errors
+
+            ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
+                        fmt='o', color='black', markersize=3, alpha=0.6,
+                        elinewidth=0.5, capsize=0, label='data')
+        else:
+            ax.plot(xd, yd, 'o', color='black', markersize=3, alpha=0.6, label='data')
+
+        y_fit = (baseline_
+                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
+                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
+                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
+                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
+                 + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
+                 + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2))
+        ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='fit')
+
+        b_off = baseline_
+        g_outer_l = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
+        g_outer_r = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
+        g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
+        g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
+        g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
+        g_shoulder = b_off + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2)
+
+        ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
+                label=f'outer ({MIDPOINT-mu1_:.0f} cm)')
+        ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
+        ax.plot(x_fine, g_inner_l, '-.', color='gray', lw=1, alpha=0.5,
+                label=f'inner ({MIDPOINT-mu2_:.0f} cm)')
+        ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
+        ax.plot(x_fine, g_center, '-', color='blue', lw=1, alpha=0.4, label='center')
+        ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
+                label=f'shoulder ({mu4_:.0f} cm)')
+
+        ax.set_title(f'{temp} C', fontweight='bold')
+        ax.set_xlim(0, 60)
+        ax.set_ylim(0, 1200)
+        if idx == 0:
+            ax.legend(fontsize=6, loc='upper left')
+        if idx >= 4:
+            ax.set_xlabel('Distance (cm)')
+        ax.set_ylabel('T (C)')
+
+    for idx in range(len(nominal_temperatures), len(axes_flat)):
+        axes_flat[idx].set_visible(False)
+
+    plt.suptitle('Individual profiles with components',
+                 fontweight='bold', fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+
 
 # %% [markdown]
 # ## Get good initial parameters via ordinary least squares, then refine with ODR
@@ -107,6 +206,9 @@ x_all = np.concatenate(x_all)
 y_all = np.concatenate(y_all)
 nominal_all = np.concatenate(nominal_all)
 
+
+# %%
+
 # --- First: ordinary least squares to get a good starting point ---
 def residuals_ls(params):
     (baseline,
@@ -118,43 +220,46 @@ def residuals_ls(params):
     y_pred = sum_of_gaussians_odr(params, xn)
     return y_pred - y_all
 
-lower = np.array([0,    0.001, -5000,  5, 1.5,
-                        0.001, -5000,  0, 1.5,
-                        0.001, -5000,     1.5,
-                        0.001, -5000,  8, 1.5])
-upper = np.array([80,   20,     800, 28, 15,
-                        20,     800, 14, 15,
-                        20,     800,     15,
-                        20,     800, 52, 15])
+lower = np.array([0, 0.001, 0,  5, 3.,
+                     0.001, 0,  0, 3.,
+                     0.001, 0,     3.,
+                     0.001, 0,  0, 3.])
+upper = np.array([80,   20,   1100, 30, 25, # outer pair
+                        20,   1100, 15, 25, # inner pair
+                        20,   1100,     25, # center fill
+                        20,   1100, 30, 25]) # shoulder
 
 best_cost = np.inf
 best_p0 = None
 
 initial_guesses = [
-    [25,  1.0, 700, 10, 5,  0.3, -1000, 4, 4,  0.5, -500, 3,  0.3,  500, 15,  3],
-    [25,  0.5, 400, 12, 4,  0.2, -2000, 3, 5,  0.8, -200, 4,  0.5,  300, 14,  4],
-    [25,  2.0, 750, 10, 6,  0.1, -3000, 4, 4,  0.3,-1000, 5,  0.2,  600, 16,  3],
-    [30,  0.8, 500, 15, 5,  0.5,  -500, 5, 4,  1.0,    0, 4,  0.1,  200, 13,  5],
-    [20,  1.5, 780,  9, 5,  0.05,-4000, 4, 4,  0.2,-2000, 4,  0.5,  700, 15,  2],
-    [25,  0.3, 200, 12, 4,  0.4,  -800, 3, 5,  0.6, -300, 3,  0.4,  400, 16,  4],
-    [25,  1.2, 600, 11, 5,  0.15,-2500, 4, 4,  0.4,-1500, 5,  0.3,  500, 14,  3],
-    [25,  0.7, 300, 13, 4,  0.3, -1500, 3, 4,  0.9, -100, 3,  0.2,  350, 17,  3],
-    [25,  1.0, 700, 10, 5,  0.1, -2000, 4, 4,  0.5, -200, 4,  0.5,  700, 42,  4],
-    [25,  1.5, 780, 10, 5,  0.05,-3000, 4, 4,  0.4, -500, 4,  1.0,  750, 45,  5],
-    [25,  0.8, 600, 11, 5,  0.2, -1000, 5, 3,  0.6, -100, 3,  0.8,  650, 40,  5],
-    [25,  1.0, 700, 10, 5,  0.1, -2000, 4, 4,  0.5, -200, 4,  0.3,  600, 35,  8],
-    [25,  1.2, 750, 10, 5,  0.08,-2500, 4, 4,  0.4, -300, 4,  0.5,  700, 38,  6],
+#baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2, a3, b3, sigma3, a4, b4, mu4, sigma4
 ]
+# sobol sequence between lower and upper bounds
+from scipy.stats import qmc
+sampler = qmc.Sobol(d=len(lower), scramble=True)
+n_samples = 20
+sobol_samples = sampler.random(n_samples)
+initial_guesses = qmc.scale(sobol_samples, lower, upper)
+initial_guesses = initial_guesses.round(decimals=1)
+# display as decimal not float
+initial_guesses[:, 0] = 25.0
+pd.DataFrame(initial_guesses, columns=['baseline', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3', 'a4', 'b4', 'mu4', 'sigma4'])
 
+
+
+# %%
 print("Finding good starting parameters via least squares...")
+best_cost = np.inf
 for i, p0 in enumerate(initial_guesses):
     try:
         res = least_squares(residuals_ls, p0, bounds=(lower, upper),
-                            method='trf', max_nfev=500000)
+                            method='trf', max_nfev=50000)
         if res.cost < best_cost:
             best_cost = res.cost
             best_p0 = res.x.copy()
             print(f"  Guess {i}: cost={res.cost:.1f} ** new best **")
+            plot_individual_profiles_with_components(res.x)
         else:
             print(f"  Guess {i}: cost={res.cost:.1f}")
     except Exception as e:
@@ -162,6 +267,12 @@ for i, p0 in enumerate(initial_guesses):
 
 print(f"\nBest LS cost = {best_cost:.1f}")
 print(f"Starting ODR from these parameters.\n")
+
+# %%
+report_parameters(best_p0, cost=best_cost)
+
+# %%
+plot_individual_profiles_with_components(best_p0)
 
 # %% [markdown]
 # ## Run ODR
@@ -195,14 +306,9 @@ odr_result.pprint()
  a3, b3, sigma3,
  a4, b4, mu4, sigma4) = odr_result.beta
 
-print(f"\nFitted parameters:")
-print(f"  baseline = {baseline:.2f} C")
-print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
-print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
-print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
-print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
-print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
-print(f"  Asym. shoulder: a4={a4:.4f}, b4={b4:.1f}, mu4={mu4:.2f} cm, sigma4={sigma4:.2f} cm")
+params = odr_result.beta
+
+report_parameters(params)
 
 # Per-profile RMSE (in T only, for comparison with earlier fits)
 print()
@@ -213,19 +319,20 @@ for temp in nominal_temperatures:
     rmse = np.sqrt(np.mean((y_pred - yd) ** 2))
     print(f"  T={temp} C:  RMSE = {rmse:.1f} C")
 
+# %%
+report_parameters(odr_result.beta, cost=odr_result.res_var)
+
+# uncertainties
+report_parameters(odr_result.sd_beta)
+
+# %%
+plot_individual_profiles_with_components(odr_result.beta, errors=(sx_dist, sy_temp))
+
 # %% [markdown]
 # ## Plot: all profiles overlay
 
 # %%
-colors = {800: '#4472C4',
-          850: '#EE7D31',
-          900: '#A5A5A5',
-          950: '#FFC002',
-          1000: '#5B9CD5',
-          1050: '#70AE47',
-          1100: '#264479'}
 
-x_fine = np.linspace(0, 60, 300)
 
 fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -243,6 +350,12 @@ for temp in nominal_temperatures:
     y_fit = sum_of_gaussians_odr(odr_result.beta, xn_fine)
     ax.plot(x_fine, y_fit, '-', color=color, linewidth=1.5, label=f'{temp} C')
 
+for temp in nominal_cooler_temperatures:
+    # fit line only
+    xn_fine = np.vstack([x_fine, np.full_like(x_fine, temp)])
+    y_fit = sum_of_gaussians_odr(odr_result.beta, xn_fine)
+    ax.plot(x_fine, y_fit, '--', linewidth=1.0, label=f'{temp} C')
+
 ax.set_xlabel('Distance into reactor (cm)', fontweight='bold')
 ax.set_ylabel('Temperature (C)', fontweight='bold')
 ax.set_title('Global fit (ODR): 13 parameters, $\\sigma_x$=2 cm, $\\sigma_T$=50 C',
@@ -257,76 +370,12 @@ plt.tight_layout()
 plt.savefig('global_fit_odr_all.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-
 # %% [markdown]
 # ## Individual profile panels with component Gaussians
 
 # %%
-def plot_individual_profiles_with_components(
-    baseline_, a1_, b1_, mu1_, sigma1_,
-    a2_, b2_, mu2_, sigma2_,
-    a3_, b3_, sigma3_,
-    a4_, b4_, mu4_, sigma4_):
-    fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
-    axes_flat = axes.flatten()
 
-    for idx, temp in enumerate(nominal_temperatures):
-        ax = axes_flat[idx]
-        xd, yd = data[temp]
-        color = colors[temp]
-
-        ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
-                    fmt='o', color='black', markersize=3, alpha=0.6,
-                    elinewidth=0.5, capsize=0, label='data')
-
-        y_fit = (baseline_
-                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
-                 + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
-                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
-                 + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
-                 + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
-                 + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2))
-        ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='fit')
-
-        b_off = baseline_
-        g_outer_l = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
-        g_outer_r = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
-        g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
-        g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
-        g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
-        g_shoulder = b_off + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2)
-
-        ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
-                label=f'outer ({MIDPOINT-mu1_:.0f} cm)')
-        ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
-        ax.plot(x_fine, g_inner_l, '-.', color='gray', lw=1, alpha=0.5,
-                label=f'inner ({MIDPOINT-mu2_:.0f} cm)')
-        ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
-        ax.plot(x_fine, g_center, '-', color='blue', lw=1, alpha=0.4, label='center')
-        ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
-                label=f'shoulder ({mu4_:.0f} cm)')
-
-        ax.set_title(f'{temp} C', fontweight='bold')
-        ax.set_xlim(0, 60)
-        if idx == 0:
-            ax.legend(fontsize=6, loc='upper left')
-        if idx >= 4:
-            ax.set_xlabel('Distance (cm)')
-        ax.set_ylabel('T (C)')
-
-    for idx in range(len(nominal_temperatures), len(axes_flat)):
-        axes_flat[idx].set_visible(False)
-
-    plt.suptitle('Interactive global fit: individual profiles with components',
-                 fontweight='bold', fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-    print('Selected parameter values:')
-    print(f'baseline={baseline_:.4f}, a1={a1_:.4f}, b1={b1_:.4f}, mu1={mu1_:.4f}, sigma1={sigma1_:.4f}')
-    print(f'a2={a2_:.4f}, b2={b2_:.4f}, mu2={mu2_:.4f}, sigma2={sigma2_:.4f}')
-    print(f'a3={a3_:.4f}, b3={b3_:.4f}, sigma3={sigma3_:.4f}')
-    print(f'a4={a4_:.4f}, b4={b4_:.4f}, mu4={mu4_:.4f}, sigma4={sigma4_:.4f}')
+# %%
 
 
 slider_style = {'description_width': '80px'}
