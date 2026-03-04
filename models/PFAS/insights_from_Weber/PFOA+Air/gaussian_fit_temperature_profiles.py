@@ -23,11 +23,13 @@
 #
 # Model:
 #
+# ```
 # T(x, nominal) = baseline
 #     + a1*(nominal - b1) * [G(x, 30-mu1, sigma1) + G(x, 30+mu1, sigma1)]
 #     + a2*(nominal - b2) * [G(x, 30-mu2, sigma2) + G(x, 30+mu2, sigma2)]
 #     + a3*(nominal - b3) * G(x, 30, sigma3)
 #     + a4*(nominal - b4) * G(x, mu4, sigma4)
+# ```
 
 # %%
 import numpy as np
@@ -184,10 +186,15 @@ def plot_individual_profiles_with_components(params, errors=None):
                  fontweight='bold', fontsize=14)
     plt.tight_layout()
     plt.show()
-plot_individual_profiles_with_components(best_p0)
+
+if 'best_p0' in locals():
+    plot_individual_profiles_with_components(best_p0)
+
 
 # %% [markdown]
 # ## Get good initial parameters via ordinary least squares, then refine with ODR
+#
+# `scipy.odr` cannot do arbitary constraints, so starting ODR from multiple initial guesses (the Sobol sequence) leads to lots of poor fits, eg. with negative values, high baselines, etc., that extrapolate poorly.
 
 # %%
 # Stack all data
@@ -245,7 +252,6 @@ initial_guesses[:, 0] = 25.0
 pd.DataFrame(initial_guesses, columns=['baseline', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3', 'a4', 'b4', 'mu4', 'sigma4'])
 
 
-
 # %%
 print("Finding good starting parameters via least squares...")
 best_cost = np.inf
@@ -258,6 +264,7 @@ for i, p0 in enumerate(initial_guesses):
             best_p0 = res.x.copy()
             print(f"  Guess {i}: cost={res.cost:.1f} ** new best **")
             plot_individual_profiles_with_components(res.x)
+            report_parameters(res.x, cost=res.cost)
         else:
             print(f"  Guess {i}: cost={res.cost:.1f}")
     except Exception as e:
@@ -324,13 +331,15 @@ report_parameters(odr_result.beta, cost=odr_result.res_var)
 report_parameters(odr_result.sd_beta)
 
 # %%
+odr_result.sd_beta
+
+# %%
 plot_individual_profiles_with_components(odr_result.beta, errors=(sx_dist, sy_temp))
 
 # %% [markdown]
 # ## Plot: all profiles overlay
 
 # %%
-
 
 fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -373,50 +382,6 @@ plt.show()
 
 # %%
 
-# %%
-
-
-slider_style = {'description_width': '80px'}
-layout = widgets.Layout(width='380px')
-
-w_baseline = widgets.FloatSlider(value=float(baseline), min=0.0, max=120.0, step=0.1, description='baseline', style=slider_style, layout=layout)
-w_a1 = widgets.FloatSlider(value=float(a1), min=0.001, max=20.0, step=0.001, description='a1', style=slider_style, layout=layout)
-w_b1 = widgets.FloatSlider(value=float(b1), min=-5000.0, max=800.0, step=1.0, description='b1', style=slider_style, layout=layout)
-w_mu1 = widgets.FloatSlider(value=float(mu1), min=5.0, max=28.0, step=0.1, description='mu1', style=slider_style, layout=layout)
-w_sigma1 = widgets.FloatSlider(value=float(sigma1), min=1.5, max=15.0, step=0.1, description='sigma1', style=slider_style, layout=layout)
-
-w_a2 = widgets.FloatSlider(value=float(a2), min=0.001, max=20.0, step=0.001, description='a2', style=slider_style, layout=layout)
-w_b2 = widgets.FloatSlider(value=float(b2), min=-5000.0, max=800.0, step=1.0, description='b2', style=slider_style, layout=layout)
-w_mu2 = widgets.FloatSlider(value=float(mu2), min=0.0, max=14.0, step=0.1, description='mu2', style=slider_style, layout=layout)
-w_sigma2 = widgets.FloatSlider(value=float(sigma2), min=1.5, max=15.0, step=0.1, description='sigma2', style=slider_style, layout=layout)
-
-w_a3 = widgets.FloatSlider(value=float(a3), min=0.001, max=20.0, step=0.001, description='a3', style=slider_style, layout=layout)
-w_b3 = widgets.FloatSlider(value=float(b3), min=-5000.0, max=800.0, step=1.0, description='b3', style=slider_style, layout=layout)
-w_sigma3 = widgets.FloatSlider(value=float(sigma3), min=1.5, max=15.0, step=0.1, description='sigma3', style=slider_style, layout=layout)
-
-w_a4 = widgets.FloatSlider(value=float(a4), min=0.001, max=20.0, step=0.001, description='a4', style=slider_style, layout=layout)
-w_b4 = widgets.FloatSlider(value=float(b4), min=-5000.0, max=800.0, step=1.0, description='b4', style=slider_style, layout=layout)
-w_mu4 = widgets.FloatSlider(value=float(mu4), min=8.0, max=52.0, step=0.1, description='mu4', style=slider_style, layout=layout)
-w_sigma4 = widgets.FloatSlider(value=float(sigma4), min=1.5, max=15.0, step=0.1, description='sigma4', style=slider_style, layout=layout)
-
-controls = widgets.HBox([
-    widgets.VBox([w_baseline, w_a1, w_b1, w_mu1, w_sigma1, w_a2, w_b2, w_mu2]),
-    widgets.VBox([w_sigma2, w_a3, w_b3, w_sigma3, w_a4, w_b4, w_mu4, w_sigma4])
-])
-
-out = widgets.interactive_output(
-    plot_individual_profiles_with_components,
-    {
-        'baseline_': w_baseline, 'a1_': w_a1, 'b1_': w_b1, 'mu1_': w_mu1, 'sigma1_': w_sigma1,
-        'a2_': w_a2, 'b2_': w_b2, 'mu2_': w_mu2, 'sigma2_': w_sigma2,
-        'a3_': w_a3, 'b3_': w_b3, 'sigma3_': w_sigma3,
-        'a4_': w_a4, 'b4_': w_b4, 'mu4_': w_mu4, 'sigma4_': w_sigma4
-    }
-)
-
-display(widgets.HTML('<h4>Adjust fit parameters</h4>'))
-display(controls, out)
-
 # %% [markdown]
 # ## Comparison: LS vs ODR parameters
 
@@ -440,11 +405,11 @@ for name, ls_val, odr_val in zip(param_names, best_p0, odr_result.beta):
 print("\ndef T_profile(x, nominal):")
 print(f"    mid = {MIDPOINT}")
 print(f"    return ({baseline:.4f}")
-print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5*((x - (mid - {mu1:.4f}))/{sigma1:.4f})**2)")
-print(f"        + {a1:.6f} * (nominal - ({b1:.4f})) * np.exp(-0.5*((x - (mid + {mu1:.4f}))/{sigma1:.4f})**2)")
-print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5*((x - (mid - {mu2:.4f}))/{sigma2:.4f})**2)")
-print(f"        + {a2:.6f} * (nominal - ({b2:.4f})) * np.exp(-0.5*((x - (mid + {mu2:.4f}))/{sigma2:.4f})**2)")
-print(f"        + {a3:.6f} * (nominal - ({b3:.4f})) * np.exp(-0.5*((x - mid)/{sigma3:.4f})**2)")
-print(f"        + {a4:.6f} * (nominal - ({b4:.4f})) * np.exp(-0.5*((x - {mu4:.4f})/{sigma4:.4f})**2))")
+print(f"        + {a1:.6f} * max(nominal - ({b1:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} - {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a1:.6f} * max(nominal - ({b1:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} + {mu1:.4f}))/{sigma1:.4f})**2)")
+print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} - {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} + {mu2:.4f}))/{sigma2:.4f})**2)")
+print(f"        + {a3:.6f} * max(nominal - ({b3:.4f}), 0) * np.exp(-0.5*((x - {MIDPOINT})/{sigma3:.4f})**2)")
+print(f"        + {a4:.6f} * max(nominal - ({b4:.4f}), 0) * np.exp(-0.5*((x - {mu4:.4f})/{sigma4:.4f})**2))")
 
 # %%
