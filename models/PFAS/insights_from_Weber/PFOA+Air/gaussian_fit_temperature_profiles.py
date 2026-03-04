@@ -17,9 +17,9 @@
 # # Global Fit of Temperature Profiles — ODR
 #
 # Uses orthogonal distance regression (scipy.odr) to account for
-# uncertainty in both x (distance, ~2 cm) and y (temperature, ~50 C).
+# uncertainty in both x (distance, ~1 cm) and y (temperature, ~25 C).
 #
-# 13 shared parameters across all 7 profiles.
+# 12 shared parameters across all 7 profiles.
 #
 # Model:
 #
@@ -97,7 +97,7 @@ def sum_of_gaussians_odr(params, x_and_nominal):
             + a3 * np.clip(nominal - b3, 0, np.inf) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
     )
 
-def report_parameters(params, cost=None):
+def report_parameters(params, cost=None, stdevs=None):
     (baseline,
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
@@ -106,12 +106,27 @@ def report_parameters(params, cost=None):
     if cost:
        print(f"Cost: {cost:.4f}")
     print(f"\nFitted parameters:")
-    print(f"  baseline = {baseline:.2f} C")
-    print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
-    print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
-    print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
-    print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
-    print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
+    if stdevs is not None:
+        (s_baseline,
+         s_a1, s_b1, s_mu1, s_sigma1,
+         s_a2, s_b2, s_mu2, s_sigma2,
+         s_a3, s_b3, s_sigma3,
+         ) = stdevs * 2  # ODR gives standard errors, but we want 95% confidence intervals, which is roughly 2-sigma
+        print(f"  baseline = ({baseline:.2f} ± {s_baseline:.2f}) C")
+        print(f"  Outer pair:     a1=({a1:.4f} ± {s_a1:.4f}), b1=({b1:.1f} ± {s_b1:.1f}), mu1=({mu1:.2f} ± {s_mu1:.2f}) cm, sigma1=({sigma1:.2f} ± {s_sigma1:.2f}) cm")
+        print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} ± {s_mu1:.2f} cm")
+        print(f"  Inner pair:     a2=({a2:.4f} ± {s_a2:.4f}), b2=({b2:.1f} ± {s_b2:.1f}), mu2=({mu2:.2f} ± {s_mu2:.2f}) cm, sigma2=({sigma2:.2f} ± {s_sigma2:.2f}) cm")
+        print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} ± {s_mu2:.2f} cm")
+        print(f"  Center fill:    a3=({a3:.4f} ± {s_a3:.4f}), b3=({b3:.1f} ± {s_b3:.1f}), sigma3=({sigma3:.2f} ± {s_sigma3:.2f}) cm at {MIDPOINT} cm")
+        print("Reported uncertainties are 2-sigma (approx 95% confidence intervals).")
+    else:
+        print(f"  baseline = {baseline:.2f} C")
+        print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
+        print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
+        print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
+        print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
+        print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
+
 
 # %%
 colors = {800: '#4472C4',
@@ -281,13 +296,13 @@ plot_individual_profiles_with_components(best_p0)
 # %% [markdown]
 # ## Run ODR
 #
-# Uncertainties: sx = 2 cm in distance, sy = 50 C in temperature.
+# Uncertainties: sx = 1 cm in distance, sy = 25 C in temperature.
 # The nominal temperature coordinate has no error (it's a known setpoint),
 # so we set its uncertainty to a tiny value.
 
 # %%
-sx_dist = 2.0    # cm uncertainty in distance
-sy_temp = 50.0   # C uncertainty in temperature
+sx_dist = 1.0    # cm uncertainty in distance
+sy_temp = 25.0   # C uncertainty in temperature
 sx_nom = 1e-10   # nominal temperature is known exactly
 
 # Build the 2-row independent variable array and matching uncertainties
@@ -327,7 +342,7 @@ for temp in nominal_temperatures:
 report_parameters(odr_result.beta, cost=odr_result.res_var)
 
 # uncertainties
-report_parameters(odr_result.sd_beta)
+report_parameters(odr_result.beta, cost=odr_result.res_var, stdevs=odr_result.sd_beta)
 
 # %%
 odr_result.sd_beta
