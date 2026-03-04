@@ -59,11 +59,11 @@ for temp in nominal_temperatures:
     order = np.argsort(distances)
     data[temp] = (distances[order], temperatures_at_distances[order])
 
-
 # %% [markdown]
 # ## Model definition
 
 # %%
+MIDPOINT = 30.0
 
 def sum_of_gaussians_odr(params, x_and_nominal):
     """ODR model function.
@@ -72,7 +72,7 @@ def sum_of_gaussians_odr(params, x_and_nominal):
       x_and_nominal[0] = x (distance)
       x_and_nominal[1] = nominal temperature
     """
-    (baseline, midpoint,
+    (baseline,
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
@@ -81,18 +81,18 @@ def sum_of_gaussians_odr(params, x_and_nominal):
 
     x = x_and_nominal[0]
     nominal = x_and_nominal[1]
-
+    mid = MIDPOINT
 
     return (baseline
-            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (midpoint - mu1)) / sigma1) ** 2)
-            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (midpoint + mu1)) / sigma1) ** 2)
-            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (midpoint - mu2)) / sigma2) ** 2)
-            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (midpoint + mu2)) / sigma2) ** 2)
-            + a3 * np.clip(nominal - b3, 0, np.inf) * np.exp(-0.5 * ((x - midpoint) / sigma3) ** 2)
+            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (mid - mu1)) / sigma1) ** 2)
+            + a1 * np.clip(nominal - b1, 0, np.inf) * np.exp(-0.5 * ((x - (mid + mu1)) / sigma1) ** 2)
+            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid - mu2)) / sigma2) ** 2)
+            + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
+            + a3 * np.clip(nominal - b3, 0, np.inf) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
             + a4 * np.clip(nominal - b4, 0, np.inf) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
 
 def report_parameters(params, cost=None):
-    (baseline, midpoint,
+    (baseline,
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
@@ -102,12 +102,11 @@ def report_parameters(params, cost=None):
        print(f"Cost: {cost:.4f}")
     print(f"\nFitted parameters:")
     print(f"  baseline = {baseline:.2f} C")
-    print(f"  midpoint = {midpoint:.2f} cm")
     print(f"  Outer pair:     a1={a1:.4f}, b1={b1:.1f}, mu1={mu1:.2f} cm, sigma1={sigma1:.2f} cm")
-    print(f"                  centers at {midpoint-mu1:.1f} and {midpoint+mu1:.1f} cm")
+    print(f"                  centers at {MIDPOINT-mu1:.1f} and {MIDPOINT+mu1:.1f} cm")
     print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
-    print(f"                  centers at {midpoint-mu2:.1f} and {midpoint+mu2:.1f} cm")
-    print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {midpoint} cm)")
+    print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
+    print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
     print(f"  Asym. shoulder: a4={a4:.4f}, b4={b4:.1f}, mu4={mu4:.2f} cm, sigma4={sigma4:.2f} cm")
 
 # %%
@@ -122,7 +121,7 @@ colors = {800: '#4472C4',
 x_fine = np.linspace(0, 60, 300)
 
 def plot_individual_profiles_with_components(params, errors=None):
-    (baseline_, midpoint, a1_, b1_, mu1_, sigma1_,
+    (baseline_, a1_, b1_, mu1_, sigma1_,
     a2_, b2_, mu2_, sigma2_,
     a3_, b3_, sigma3_,
     a4_, b4_, mu4_, sigma4_) = params
@@ -152,18 +151,18 @@ def plot_individual_profiles_with_components(params, errors=None):
         ax.plot(x_fine, y_fit, '-', color=color, linewidth=2, label='fit')
 
         b_off = baseline_
-        g_outer_l = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (midpoint - mu1_)) / sigma1_) ** 2)
-        g_outer_r = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (midpoint + mu1_)) / sigma1_) ** 2)
-        g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (midpoint - mu2_)) / sigma2_) ** 2)
-        g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (midpoint + mu2_)) / sigma2_) ** 2)
-        g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - midpoint) / sigma3_) ** 2)
+        g_outer_l = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
+        g_outer_r = b_off + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu1_)) / sigma1_) ** 2)
+        g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
+        g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
+        g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
         g_shoulder = b_off + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2)
 
         ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
-                label=f'outer ({midpoint-mu1_:.0f} cm)')
+                label=f'outer ({MIDPOINT-mu1_:.0f} cm)')
         ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
         ax.plot(x_fine, g_inner_l, '-.', color='gray', lw=1, alpha=0.5,
-                label=f'inner ({midpoint-mu2_:.0f} cm)')
+                label=f'inner ({MIDPOINT-mu2_:.0f} cm)')
         ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
         ax.plot(x_fine, g_center, '-', color='blue', lw=1, alpha=0.4, label='center')
         ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
@@ -210,7 +209,7 @@ nominal_all = np.concatenate(nominal_all)
 
 # --- First: ordinary least squares to get a good starting point ---
 def residuals_ls(params):
-    (baseline, midpoint,
+    (baseline,
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
@@ -219,11 +218,11 @@ def residuals_ls(params):
     y_pred = sum_of_gaussians_odr(params, xn)
     return y_pred - y_all
 
-lower = np.array([0, 20, 0.001, 0,  5, 3.,
+lower = np.array([0, 0.001, 0,  5, 3.,
                      0.001, 0,  0, 3.,
                      0.001, 0,     3.,
                      0.001, 0,  0, 3.])
-upper = np.array([80, 40,  20,   1100, 30, 25, # outer pair
+upper = np.array([80,   20,   1100, 30, 25, # outer pair
                         20,   1100, 15, 25, # inner pair
                         20,   1100,     25, # center fill
                         20,   1100, 30, 25]) # shoulder
@@ -241,9 +240,9 @@ n_samples = 20
 sobol_samples = sampler.random(n_samples)
 initial_guesses = qmc.scale(sobol_samples, lower, upper)
 initial_guesses = initial_guesses.round(decimals=1)
-initial_guesses[:, 0] = 25.0 # baseline
-initial_guesses[:, 1] = 30.0 # midpoint
-pd.DataFrame(initial_guesses, columns=['baseline', 'midpoint', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3', 'a4', 'b4', 'mu4', 'sigma4'])
+# display as decimal not float
+initial_guesses[:, 0] = 25.0
+pd.DataFrame(initial_guesses, columns=['baseline', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3', 'a4', 'b4', 'mu4', 'sigma4'])
 
 
 
@@ -293,13 +292,13 @@ sx_all = np.vstack([np.full_like(x_all, sx_dist),
 odr_data = RealData(xn_all, y_all, sx=sx_all, sy=np.full_like(y_all, sy_temp))
 odr_model = Model(sum_of_gaussians_odr)
 
-odr_instance = ODR(odr_data, odr_model, beta0=best_p0, maxit=25000)
+odr_instance = ODR(odr_data, odr_model, beta0=best_p0, maxit=5000)
 odr_result = odr_instance.run()
 
 print("ODR result:")
 odr_result.pprint()
 
-(baseline, midpoint,
+(baseline,
  a1, b1, mu1, sigma1,
  a2, b2, mu2, sigma2,
  a3, b3, sigma3,
