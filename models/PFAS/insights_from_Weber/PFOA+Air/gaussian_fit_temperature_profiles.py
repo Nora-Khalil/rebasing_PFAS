@@ -28,8 +28,10 @@
 #     + a1*(nominal - b1) * [G(x, 30-mu1, sigma1) + G(x, 30+mu1, sigma1)]
 #     + a2*(nominal - b2) * [G(x, 30-mu2, sigma2) + G(x, 30+mu2, sigma2)]
 #     + a3*(nominal - b3) * G(x, 30, sigma3)
-#     + a4*(nominal - b4) * G(x, mu4, sigma4)
 # ```
+#
+# I tried with an optional fourth gaussian to fit a "shoulder" but it didn't help
+# `    + a4*(nominal - b4) * G(x, mu4, sigma4)`
 
 # %%
 import numpy as np
@@ -39,6 +41,9 @@ import ipywidgets as widgets
 from IPython.display import display
 from scipy.odr import ODR, Model, RealData
 from scipy.optimize import least_squares
+
+# %% [markdown]
+#
 
 # %%
 # Load data
@@ -78,7 +83,6 @@ def sum_of_gaussians_odr(params, x_and_nominal):
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
-     a4, b4, mu4, sigma4
      ) = params
 
     x = x_and_nominal[0]
@@ -91,14 +95,13 @@ def sum_of_gaussians_odr(params, x_and_nominal):
             + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid - mu2)) / sigma2) ** 2)
             + a2 * np.clip(nominal - b2, 0, np.inf) * np.exp(-0.5 * ((x - (mid + mu2)) / sigma2) ** 2)
             + a3 * np.clip(nominal - b3, 0, np.inf) * np.exp(-0.5 * ((x - mid) / sigma3) ** 2)
-            + a4 * np.clip(nominal - b4, 0, np.inf) * np.exp(-0.5 * ((x - mu4) / sigma4) ** 2))
+    )
 
 def report_parameters(params, cost=None):
     (baseline,
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
-     a4, b4, mu4, sigma4
      ) = params
     if cost:
        print(f"Cost: {cost:.4f}")
@@ -109,7 +112,6 @@ def report_parameters(params, cost=None):
     print(f"  Inner pair:     a2={a2:.4f}, b2={b2:.1f}, mu2={mu2:.2f} cm, sigma2={sigma2:.2f} cm")
     print(f"                  centers at {MIDPOINT-mu2:.1f} and {MIDPOINT+mu2:.1f} cm")
     print(f"  Center fill:    a3={a3:.4f}, b3={b3:.1f}, sigma3={sigma3:.2f} cm  (at {MIDPOINT} cm)")
-    print(f"  Asym. shoulder: a4={a4:.4f}, b4={b4:.1f}, mu4={mu4:.2f} cm, sigma4={sigma4:.2f} cm")
 
 # %%
 colors = {800: '#4472C4',
@@ -126,7 +128,7 @@ def plot_individual_profiles_with_components(params, errors=None):
     (baseline_, a1_, b1_, mu1_, sigma1_,
     a2_, b2_, mu2_, sigma2_,
     a3_, b3_, sigma3_,
-    a4_, b4_, mu4_, sigma4_) = params
+    ) = params
     fig, axes = plt.subplots(4, 4, figsize=(15, 12), sharex=True)
     axes_flat = axes.flatten()
 
@@ -158,8 +160,7 @@ def plot_individual_profiles_with_components(params, errors=None):
         g_inner_l = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu2_)) / sigma2_) ** 2)
         g_inner_r = b_off + a2_ * (temp - b2_) * np.exp(-0.5 * ((x_fine - (MIDPOINT + mu2_)) / sigma2_) ** 2)
         g_center = b_off + a3_ * (temp - b3_) * np.exp(-0.5 * ((x_fine - MIDPOINT) / sigma3_) ** 2)
-        g_shoulder = b_off + a4_ * (temp - b4_) * np.exp(-0.5 * ((x_fine - mu4_) / sigma4_) ** 2)
-
+ 
         ax.plot(x_fine, g_outer_l, '--', color='gray', lw=1, alpha=0.5,
                 label=f'outer ({MIDPOINT-mu1_:.0f} cm)')
         ax.plot(x_fine, g_outer_r, '--', color='gray', lw=1, alpha=0.5)
@@ -167,8 +168,6 @@ def plot_individual_profiles_with_components(params, errors=None):
                 label=f'inner ({MIDPOINT-mu2_:.0f} cm)')
         ax.plot(x_fine, g_inner_r, '-.', color='gray', lw=1, alpha=0.5)
         ax.plot(x_fine, g_center, '-', color='blue', lw=1, alpha=0.4, label='center')
-        ax.plot(x_fine, g_shoulder, '-', color='red', lw=1, alpha=0.4,
-                label=f'shoulder ({mu4_:.0f} cm)')
 
         ax.set_title(f'{temp} C', fontweight='bold')
         ax.set_xlim(0, 60)
@@ -188,6 +187,8 @@ def plot_individual_profiles_with_components(params, errors=None):
     plt.show()
 
 if 'best_p0' in locals():
+    # If you've already run the notebook and generated some parameters
+    # test the plotting function with them now
     plot_individual_profiles_with_components(best_p0)
 
 
@@ -220,7 +221,7 @@ def residuals_ls(params):
      a1, b1, mu1, sigma1,
      a2, b2, mu2, sigma2,
      a3, b3, sigma3,
-     a4, b4, mu4, sigma4) = params
+     ) = params
     xn = np.vstack([x_all, nominal_all])
     y_pred = sum_of_gaussians_odr(params, xn)
     return y_pred - y_all
@@ -228,28 +229,26 @@ def residuals_ls(params):
 lower = np.array([0, 0.001, 0,  5, 3.,
                      0.001, 0,  0, 3.,
                      0.001, 0,     3.,
-                     0.001, 0,  0, 3.])
+                ])
 upper = np.array([80,   20,   1100, 30, 25, # outer pair
                         20,   1100, 15, 25, # inner pair
                         20,   1100,     25, # center fill
-                        20,   1100, 30, 25]) # shoulder
+                ])
 
 best_cost = np.inf
 best_p0 = None
 
-initial_guesses = [
-#baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2, a3, b3, sigma3, a4, b4, mu4, sigma4
-]
+initial_guesses = [[]] #baseline, a1, b1, mu1, sigma1, a2, b2, mu2, sigma2, a3, b3, sigma3,
+
 # sobol sequence between lower and upper bounds
 from scipy.stats import qmc
 sampler = qmc.Sobol(d=len(lower), scramble=True)
-n_samples = 20
+n_samples = 25
 sobol_samples = sampler.random(n_samples)
 initial_guesses = qmc.scale(sobol_samples, lower, upper)
 initial_guesses = initial_guesses.round(decimals=1)
-# display as decimal not float
-initial_guesses[:, 0] = 25.0
-pd.DataFrame(initial_guesses, columns=['baseline', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3', 'a4', 'b4', 'mu4', 'sigma4'])
+initial_guesses[:, 0] = 28.0
+pd.DataFrame(initial_guesses, columns=['baseline', 'a1', 'b1', 'mu1', 'sigma1', 'a2', 'b2', 'mu2', 'sigma2', 'a3', 'b3', 'sigma3'])
 
 
 # %%
@@ -309,7 +308,7 @@ odr_result.pprint()
  a1, b1, mu1, sigma1,
  a2, b2, mu2, sigma2,
  a3, b3, sigma3,
- a4, b4, mu4, sigma4) = odr_result.beta
+) = odr_result.beta
 
 params = odr_result.beta
 
@@ -378,14 +377,7 @@ plt.savefig('global_fit_odr_all.png', dpi=150, bbox_inches='tight')
 plt.show()
 
 # %% [markdown]
-# ## Individual profile panels with component Gaussians
-
-# %%
-
-# %% [markdown]
 # ## Comparison: LS vs ODR parameters
-
-# %%
 
 # %%
 print("Comparison of parameters:")
@@ -393,8 +385,7 @@ print(f"{'param':>10s}  {'LS':>12s}  {'ODR':>12s}")
 print("-" * 40)
 param_names = ['baseline', 'a1', 'b1', 'mu1', 'sigma1',
                'a2', 'b2', 'mu2', 'sigma2',
-               'a3', 'b3', 'sigma3',
-               'a4', 'b4', 'mu4', 'sigma4']
+               'a3', 'b3', 'sigma3',]
 for name, ls_val, odr_val in zip(param_names, best_p0, odr_result.beta):
     print(f"{name:>10s}  {ls_val:>12.4f}  {odr_val:>12.4f}")
 
@@ -410,6 +401,6 @@ print(f"        + {a1:.6f} * max(nominal - ({b1:.4f}), 0) * np.exp(-0.5*((x - ({
 print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} - {mu2:.4f}))/{sigma2:.4f})**2)")
 print(f"        + {a2:.6f} * max(nominal - ({b2:.4f}), 0) * np.exp(-0.5*((x - ({MIDPOINT} + {mu2:.4f}))/{sigma2:.4f})**2)")
 print(f"        + {a3:.6f} * max(nominal - ({b3:.4f}), 0) * np.exp(-0.5*((x - {MIDPOINT})/{sigma3:.4f})**2)")
-print(f"        + {a4:.6f} * max(nominal - ({b4:.4f}), 0) * np.exp(-0.5*((x - {mu4:.4f})/{sigma4:.4f})**2))")
+
 
 # %%
