@@ -125,22 +125,26 @@ def plot_individual_profiles_with_components(params, errors=None):
     a2_, b2_, mu2_, sigma2_,
     a3_, b3_, sigma3_,
     a4_, b4_, mu4_, sigma4_) = params
-    fig, axes = plt.subplots(3, 3, figsize=(15, 12), sharex=True)
+    fig, axes = plt.subplots(4, 4, figsize=(15, 12), sharex=True)
     axes_flat = axes.flatten()
 
-    for idx, temp in enumerate(nominal_temperatures):
+    nominal_temperatures_to_plot = sorted(nominal_temperatures + nominal_cooler_temperatures, reverse=True)[:15]
+
+    for idx, temp in enumerate(nominal_temperatures_to_plot):
         ax = axes_flat[idx]
-        xd, yd = data[temp]
-        color = colors[temp]
 
-        if errors:
-            sx_dist, sy_temp = errors
+        if temp in data:
+            xd, yd = data[temp]
+            color = colors[temp]
 
-            ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
-                        fmt='o', color='black', markersize=3, alpha=0.6,
-                        elinewidth=0.5, capsize=0, label='data')
-        else:
-            ax.plot(xd, yd, 'o', color='black', markersize=3, alpha=0.6, label='data')
+            if errors:
+                sx_dist, sy_temp = errors
+
+                ax.errorbar(xd, yd, xerr=sx_dist, yerr=sy_temp,
+                            fmt='o', color='black', markersize=3, alpha=0.6,
+                            elinewidth=0.5, capsize=0, label='data')
+            else:
+                ax.plot(xd, yd, 'o', color='black', markersize=3, alpha=0.6, label='data')
 
         y_fit = (baseline_
                  + a1_ * (temp - b1_) * np.exp(-0.5 * ((x_fine - (MIDPOINT - mu1_)) / sigma1_) ** 2)
@@ -178,15 +182,14 @@ def plot_individual_profiles_with_components(params, errors=None):
             ax.set_xlabel('Distance (cm)')
         ax.set_ylabel('T (C)')
 
-    for idx in range(len(nominal_temperatures), len(axes_flat)):
+    for idx in range(len(nominal_temperatures_to_plot), len(axes_flat)):
         axes_flat[idx].set_visible(False)
 
     plt.suptitle('Individual profiles with components',
                  fontweight='bold', fontsize=14)
     plt.tight_layout()
     plt.show()
-
-
+plot_individual_profiles_with_components(best_p0)
 
 # %% [markdown]
 # ## Get good initial parameters via ordinary least squares, then refine with ODR
