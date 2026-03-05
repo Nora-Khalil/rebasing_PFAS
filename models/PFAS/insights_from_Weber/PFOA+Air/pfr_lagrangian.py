@@ -25,6 +25,7 @@
 #
 
 # %%
+import os
 import re
 import cantera as ct
 import numpy as np
@@ -200,7 +201,13 @@ class PFR_Reactor(ct.ExtensibleIdealGasConstPressureMoleReactor):
 #
 
 # %%
-mechanism_file = '../chemkin_for_Weber_2025_12_12/PFAS_O2_H2O_N2O_publish.yaml'
+# Jupyter-safe: __file__ is not defined in notebooks
+here = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+mechanism_file = os.path.abspath(
+    os.path.join(here, '..', 'chemkin_for_Weber_2025_12_12', 'PFAS_O2_H2O_N2O_publish.yaml')
+)
+print(mechanism_file)
+assert os.path.isfile(mechanism_file), f"Mechanism file not found: {mechanism_file}"
 
 # %%
 # Reactor geometry
@@ -232,6 +239,61 @@ nominal_temperatures = [400, 500, 600, 700, 800, 900, 1000, 1100]
 # %%
 # Number of time steps for output
 n_steps = 200
+
+
+# %%
+
+def plot_rates_of_progress(gas):
+    """Plot forward (blue) and reverse (red) rates of progress for all reactions."""
+    # Plot forward rates
+    plt.plot(gas.forward_rates_of_progress, 'b.', label='Forward')
+
+    # Plot reverse rates
+    plt.plot(gas.reverse_rates_of_progress, 'r.', label='Reverse')
+
+    # label the highest of each
+    top_forward = np.argsort(gas.forward_rates_of_progress)[-3:]
+    top_reverse = np.argsort(gas.reverse_rates_of_progress)[-3:]
+    for idx in top_forward:
+        plt.text(idx, gas.forward_rates_of_progress[idx], f'R{idx}', color='blue', fontsize=8)
+        print(f"R{idx}: {gas.reaction(idx).equation}  Forward ROP: {gas.forward_rates_of_progress[idx]:.3e}")
+    for idx in top_reverse:
+        plt.text(idx, gas.reverse_rates_of_progress[idx], f'R{idx}', color='red', fontsize=8)
+        print(f"R{idx}: {gas.reaction(idx).equation}  Reverse ROP: {gas.reverse_rates_of_progress[idx]:.3e}")
+
+    plt.xlabel('Reaction')
+    plt.ylabel('Rate of Progress')
+    plt.title('Rates of Progress for All Reactions')
+    plt.legend()
+    plt.show()
+
+# %%
+def find_culprit_reactions(gas, species_index=None, species_name=None):
+    """Find the top reactions contributing to the net production/consumption of a species."""
+    if species_index is not None:
+        k = species_index
+    elif species_name is not None:
+        k = gas.species_index(species_name)
+    else:
+        raise ValueError("Either species_index or species_name must be provided")
+
+    # Stoich coefficients for species k across all reactions
+    nu = gas.product_stoich_coeffs[k, :] - gas.reactant_stoich_coeffs[k, :]
+    
+    # Absolute total rate
+    rop = abs(gas.forward_rates_of_progress) + abs(gas.reverse_rates_of_progress)
+    
+    # Contribution of each reaction to species k
+    contrib = nu * rop
+    
+    # Sort by magnitude
+    top = np.argsort(np.abs(contrib))[::-1][:8]
+    
+    print(f"\nTop reactions affecting {gas.species_name(k)}:")
+    for idx in top:
+        if contrib[idx] != 0:
+            print(f"  R{idx}: {gas.reaction(idx).equation}  "
+                  f"(rate contribution: {contrib[idx]:.4e})")
 
 
 # %% [markdown]
@@ -311,6 +373,11 @@ for nominal_T_C in nominal_temperatures:
                 t_array = t_array[:n] # truncate
                 x_array = x_array[:n]
                 T_array = T_array[:n]
+                last_good_state = states[-1]
+                find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
+                find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
+                find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
+                plot_rates_of_progress(last_good_state)
             break
 
         t_array[n] = sim.time
