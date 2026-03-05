@@ -70,10 +70,13 @@ def T_profile_K(x_m, nominal_C):
 
 # %%
 def T_average_K(nominal_C):
-    """Temperature in K averaged over the reactor length, given nominal temp in °C."""
-    # Integrate T_profile_celsius over the length of the reactor
-    # For simplicity, we'll use the average of the Gaussian terms
-    return np.mean([T_profile_celsius(x, nominal_C) for x in np.linspace(0, _MIDPOINT*2, 100)]) + 273.15
+    """Temperature in K averaged over the reactor length, given nominal temp in °C.
+    
+    But weight it differently, so that it gets the RTD better.
+    do 1/(mean of 1/T) instead of mean of T
+    """
+
+    return 1/(np.mean([1/T_profile_K(x, nominal_C) for x in np.linspace(0, _MIDPOINT*2, 100)]))
 
 
 
@@ -237,34 +240,30 @@ n_steps = 200
 
 # %%
 results = {}
+gas = ct.Solution(mechanism_file)
 
 # %%
+# Mass flow rate (constant throughout the reactor)
+# Vdot = 150 mL/min is at room temperature (before entering furnace).
+# So compute mass flow rate at ~298 K, 1 atm:
+gas.TPX = 298.15, ct.one_atm, initial_composition
+rho_inlet = gas.density
+mass_flow_rate = rho_inlet * Vdot
+
+
 for nominal_T_C in nominal_temperatures:
     print(f"\n{'='*60}")
     print(f"Simulating nominal temperature: {nominal_T_C} °C")
     print(f"{'='*60}")
 
     # Set up the gas at inlet conditions
-    gas = ct.Solution(mechanism_file)
     T_inlet_K = T_profile_K(0.0, nominal_T_C)
     gas.TPX = T_inlet_K, ct.one_atm, initial_composition
 
-    # Mass flow rate (constant throughout the reactor)
-    # Vdot = 150 mL/min is at room temperature (before entering furnace).
-    # So compute mass flow rate at ~300 K, 1 atm:
-    gas_inlet = ct.Solution(mechanism_file)
-    gas_inlet.TPX = 298.15, ct.one_atm, initial_composition
-    rho_inlet = gas_inlet.density
-    u_inlet = Vdot / cross_area
-    mass_flow_rate = rho_inlet * u_inlet * cross_area  # = rho_inlet * Vdot
-
     print(f"  Inlet T: {T_inlet_K:.1f} K ({T_inlet_K - 273.15:.1f} °C)")
     print(f"  Mass flow rate: {mass_flow_rate:.6e} kg/s")
-    print(f"  Inlet velocity (at 298.15K): {u_inlet:.4f} m/s")
+    print(f"  Inlet velocity (at 298.15K): {Vdot / cross_area:.4f} m/s")
     print(f"  Inlet velocity (at T_inlet): {mass_flow_rate / (gas.density * cross_area):.4f} m/s")
-
-    # Set up the gas at the actual inlet temperature for the reactor
-    gas.TPX = T_inlet_K, ct.one_atm, initial_composition
 
     # Create the extensible reactor
     reactor = PFR_Reactor(
@@ -279,6 +278,7 @@ for nominal_T_C in nominal_temperatures:
 
     # Estimate total residence time for setting up time steps
     # Use a rough average velocity
+    # We do a distance-weighted average but should have a time-weighted
     T_avg_K = T_average_K(nominal_T_C)
     rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
     u_avg = mass_flow_rate / (rho_avg * cross_area)
@@ -302,11 +302,12 @@ for nominal_T_C in nominal_temperatures:
             sim.advance(t_i)
         except ct.CanteraError as e:
             print(f"  Error occurred at step {n+1}: {e}")
-            m = re.search("Components with largest weighted error estimates:\n(\d+).*\n(\d+)", str(e))
+            m = re.search(r"Components with largest weighted error estimates:\n(\d+).*\n(\d+).*\n(\d+)", str(e))
             if m:
-                print(f"  Problematic components: {m.group(1)}, {m.group(2)}")
+                print(f"  Problematic components: {m.group(1)}, {m.group(2)}, {m.group(3)}")
                 print(sim.component_name(int(m.group(1))))
                 print(sim.component_name(int(m.group(2))))
+                print(sim.component_name(int(m.group(3))))
                 t_array = t_array[:n] # truncate
                 x_array = x_array[:n]
                 T_array = T_array[:n]
@@ -367,7 +368,7 @@ for nominal_T_C in nominal_temperatures:
              label=f'{nominal_T_C} °C')
 ax1.set_xlabel('Distance (cm)')
 ax1.set_ylabel('Temperature (°C)')
-ax1.set_title('Temperature profiles: analytical (solid) vs simulated (dashed)')
+ax1.set_title('Temperature profiles: target (solid) vs simulated (dashed)')
 ax1.legend()
 ax1.set_xlim(0, 60)
 # --- PFOA destruction ---
@@ -384,7 +385,7 @@ for nominal_T_C in nominal_temperatures:
 
 ax2.set_xlabel('Distance (cm)')
 ax2.set_ylabel('[PFOA] / [PFOA]₀')
-ax2.set_title('PFOA destruction along reactor')
+ax2.set_title('PFOA along reactor')
 ax2.legend()
 ax2.set_xlim(0, 60)
 ax2.set_ylim(0, 1.1)
@@ -393,5 +394,24 @@ plt.tight_layout()
 plt.show()
 plt.savefig('pfr_lagrangian_results.png', dpi=300)
 # %%
+# HF concentration along the reactor
+plt.figure(figsize=(5, 4))
+ax = plt.gca()
+for nominal_T_C in nominal_temperatures:
+    color = colors[nominal_T_C]
+    r = results[nominal_T_C]
+    states = r['states']
+    if 'HF' in states.species_names:
+        idx = states.species_index('HF')
+        X_HF = states.X[:, idx]
+        ax.plot(r['x'] * 100, X_HF, '-', color=color,
+                 label=f'{nominal_T_C} °C')
+ax.set_xlabel('Distance (cm)')
+ax.set_ylabel('Mole fraction of HF')
+ax.set_title('HF formation along reactor')
+ax.legend()
+ax.set_xlim(0, 60)
+plt.tight_layout()
+plt.show()
 
 # %%
