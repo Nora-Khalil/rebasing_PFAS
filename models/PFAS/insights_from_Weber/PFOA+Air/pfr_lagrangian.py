@@ -212,6 +212,37 @@ gas = ct.Solution(mechanism_file)
 gas()
 
 # %%
+i = 101
+print(gas.reaction(i))
+print(gas.reaction(i).input_data)
+gas.TPX=800, ct.one_atm, 'HF:1.0, N2:10'
+gas.equilibrate('TP')
+gas()
+print(f"Forward rate constant: {gas.forward_rate_constants[i]:.3g}")
+print(f"Reverse rate constant: {gas.reverse_rate_constants[i]:.3g}")
+
+# %%
+# plot all forward (in blue) and reverse (in red) rate constants
+plt.semilogy(gas.forward_rate_constants, 'b.', label='Forward')
+plt.semilogy(gas.reverse_rate_constants, 'r.', label='Reverse')
+
+for i in range(len(gas.reverse_rate_constants)):
+    if gas.reverse_rate_constants[i] > 1e14:
+        plt.text(i, gas.reverse_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
+    if gas.forward_rate_constants[i] > 1e14:
+        plt.text(i, gas.forward_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
+plt.xlabel('Reaction Index')
+plt.ylabel('Rate Constant')
+plt.ylim(1e-20, 1e20)
+plt.legend()
+plt.show()
+
+# %%
+
+rate = gas.reaction(i).rate.input_data['rate-constant']
+print(rate)
+
+
 
 # %%
 # Reactor geometry
@@ -387,9 +418,9 @@ for nominal_T_C in nominal_temperatures:
                 x_array = x_array[:n]
                 T_array = T_array[:n]
                 last_good_state = states[-1]
-                #find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
-                #find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
-                #find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
+                find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
+                find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
+                find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
                 #plot_rates_of_progress(last_good_state)
             break
 
