@@ -25,6 +25,7 @@
 #
 
 # %%
+import re
 import cantera as ct
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,6 +67,14 @@ def T_profile_K(x_m, nominal_C):
     """Temperature in K, given position in m and nominal temp in °C."""
     x_cm = x_m * 100.0  # m -> cm
     return T_profile_celsius(x_cm, nominal_C) + 273.15
+
+# %%
+def T_average_K(nominal_C):
+    """Temperature in K averaged over the reactor length, given nominal temp in °C."""
+    # Integrate T_profile_celsius over the length of the reactor
+    # For simplicity, we'll use the average of the Gaussian terms
+    return np.mean([T_profile_celsius(x, nominal_C) for x in np.linspace(0, _MIDPOINT*2, 100)]) + 273.15
+
 
 
 # %%
@@ -215,11 +224,11 @@ initial_composition = {
 
 # %%
 # Nominal furnace temperatures to simulate (°C)
-nominal_temperatures = [800, 850, 900, 950, 1000, 1050, 1100]
+nominal_temperatures = [400, 500, 600, 700, 800, 900, 1000, 1100]
 
 # %%
 # Number of time steps for output
-n_steps = 2000
+n_steps = 200
 
 
 # %% [markdown]
@@ -270,7 +279,7 @@ for nominal_T_C in nominal_temperatures:
 
     # Estimate total residence time for setting up time steps
     # Use a rough average velocity
-    T_avg_K = T_profile_K(length / 2, nominal_T_C)
+    T_avg_K = T_average_K(nominal_T_C)
     rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
     u_avg = mass_flow_rate / (rho_avg * cross_area)
     t_total_est = length / u_avg
@@ -289,7 +298,19 @@ for nominal_T_C in nominal_temperatures:
     # Integrate
     for n in range(n_steps):
         t_i = (n + 1) * dt
-        sim.advance(t_i)
+        try:
+            sim.advance(t_i)
+        except ct.CanteraError as e:
+            print(f"  Error occurred at step {n+1}: {e}")
+            m = re.search("Components with largest weighted error estimates:\n(\d+).*\n(\d+)", str(e))
+            if m:
+                print(f"  Problematic components: {m.group(1)}, {m.group(2)}")
+                print(sim.component_name(int(m.group(1))))
+                print(sim.component_name(int(m.group(2))))
+                t_array = t_array[:n] # truncate
+                x_array = x_array[:n]
+                T_array = T_array[:n]
+            break
 
         t_array[n] = sim.time
         x_array[n] = reactor.position
@@ -326,8 +347,10 @@ for nominal_T_C in nominal_temperatures:
 #
 
 # %%
-colors = {800: '#4472C4', 850: '#EE7D31', 900: '#A5A5A5', 950: '#FFC002',
-          1000: '#5B9CD5', 1050: '#70AE47', 1100: '#264479'}
+colors = {
+    400: '#4472C4', 500: '#EE7D31', 600: '#A5A5A5', 700: '#FFC002',
+    800: '#5B9CD5', 900: '#70AE47', 1000: '#264479', 1100: '#9E480E',
+    }
 
 # %%
 # --- Temperature profiles: imposed vs simulated ---
@@ -368,7 +391,7 @@ ax2.set_ylim(0, 1.1)
 
 plt.tight_layout()
 plt.show()
-
+plt.savefig('pfr_lagrangian_results.png', dpi=300)
 # %%
 
 # %%
