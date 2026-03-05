@@ -92,28 +92,29 @@ def dTdx_K_per_m(x_m, nominal_C):
     and the °C -> K conversion doesn't affect the derivative.
     """
     x_cm = x_m * 100.0
-    nom = nominal_C
-    mid = _MIDPOINT
-
     dTdx_cm = 0.0
 
-    # Helper: derivative of a * coeff * exp(-0.5*((x - c)/s)^2) w.r.t. x
-    def gauss_deriv(a, coeff, c, s):
-        z = (x_cm - c) / s
-        return a * coeff * (-z / s) * np.exp(-0.5 * z**2)
+    if nominal_C > _B1:
+        # Outer pair
+        coeff = _A1 * (nominal_C - _B1)
+        z = (x_cm - (_MIDPOINT - _MU1)) / _SIGMA1
+        dTdx_cm += coeff * (-z / _SIGMA1) * np.exp(-0.5 * z*z)
+        z = (x_cm - (_MIDPOINT + _MU1)) / _SIGMA1
+        dTdx_cm += coeff * (-z / _SIGMA1) * np.exp(-0.5 * z*z)
 
-    coeff1 = max(nom - _B1, 0)
-    coeff2 = max(nom - _B2, 0)
-    coeff3 = max(nom - _B3, 0)
+    if nominal_C > _B2:
+        # Inner pair
+        coeff = _A2 * (nominal_C - _B2)
+        z = (x_cm - (_MIDPOINT - _MU2)) / _SIGMA2
+        dTdx_cm += coeff * (-z / _SIGMA2) * np.exp(-0.5 * z*z)
+        z = (x_cm - (_MIDPOINT + _MU2)) / _SIGMA2
+        dTdx_cm += coeff * (-z / _SIGMA2) * np.exp(-0.5 * z*z)
 
-    # Outer pair
-    dTdx_cm += gauss_deriv(_A1, coeff1, mid - _MU1, _SIGMA1)
-    dTdx_cm += gauss_deriv(_A1, coeff1, mid + _MU1, _SIGMA1)
-    # Inner pair
-    dTdx_cm += gauss_deriv(_A2, coeff2, mid - _MU2, _SIGMA2)
-    dTdx_cm += gauss_deriv(_A2, coeff2, mid + _MU2, _SIGMA2)
-    # Center
-    dTdx_cm += gauss_deriv(_A3, coeff3, mid, _SIGMA3)
+    if nominal_C > _B3:
+        # Center
+        coeff = _A3 * (nominal_C - _B3)
+        z = (x_cm - _MIDPOINT) / _SIGMA3
+        dTdx_cm += coeff * (-z / _SIGMA3) * np.exp(-0.5 * z*z)
 
     # Convert cm -> m: dT/dx_m = dT/dx_cm * (dx_cm / dx_m) = dT/dx_cm * 100
     return dTdx_cm * 100.0
@@ -564,8 +565,3 @@ refresh_plot()
 # %%
 state = results[800]['states'][-1]
 results[800]['x'][-1]
-
-# %%
-states.species_index('PFOArote')
-
-# %%
