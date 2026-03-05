@@ -148,12 +148,12 @@ class PFR_Reactor(ct.ExtensibleIdealGasConstPressureMoleReactor):
             raise ValueError(f"Expected initialization time t0=0, got t0={t0}")
         # Add one extra equation for position x
         self.n_vars += 1
-        self.i_position = self.n_vars - 1  # index of the position variable
+        self.i_position = self.n_vars - 1
         self.position = 0.0
 
     def after_get_state(self, y):
         """Append x to the state vector."""
-        y[self.n_vars - 1] = self.position
+        y[self.i_position] = self.position
 
     def after_update_state(self, y):
         """Read x back from the state vector."""
@@ -176,12 +176,11 @@ class PFR_Reactor(ct.ExtensibleIdealGasConstPressureMoleReactor):
         x_m = self.position
 
         # Current velocity: u = mdot / (rho * A)
-        rho = self.density
-        u = self.mass_flow_rate / (rho * self.cross_section_area)
+        velocity = self.mass_flow_rate / (self.density * self.cross_section_area)
 
         # Impose dT/dt = dT/dx * u
         dTdx = dTdx_K_per_m(x_m, self.nominal_temp_C)
-        dTdt = dTdx * u
+        dTdt = dTdx * velocity
 
         # Temperature is state variable index 0 for IdealGasConstPressureMoleReactor
         # The governing eq is: LHS[0] * dT/dt = RHS[0]
@@ -189,9 +188,8 @@ class PFR_Reactor(ct.ExtensibleIdealGasConstPressureMoleReactor):
         RHS[0] = LHS[0] * dTdt
 
         # Extra equation for position: dx/dt = u
-        # Extra variables start after the base state variables.
         # LHS for extra variables defaults to 1.0, so RHS = dx/dt = u
-        RHS[self.n_vars - 1] = u
+        RHS[self.i_position] = velocity
 
 
 # %% [markdown]
@@ -209,6 +207,11 @@ mechanism_file = os.path.abspath(
 print(mechanism_file)
 assert os.path.isfile(mechanism_file), f"Mechanism file not found: {mechanism_file}"
 
+gas = ct.Solution(mechanism_file)
+gas()
+
+# %%
+
 # %%
 # Reactor geometry
 int_diam = 0.007       # m (7 mm ID)
@@ -217,7 +220,7 @@ cross_area = np.pi * radius * radius  # m^2
 
 # %%
 # Flow conditions
-Vdot = 150e-6 / 60.0  # volumetric flow rate: 150 mL/min -> m^3/s (at inlet T)
+Vdot = 150e-6 / 60.0  # volumetric flow rate: 150 mL/min -> m^3/s (at room T?)
 
 # %%
 # Reactor length
@@ -235,37 +238,47 @@ initial_composition = {
 # %%
 # Nominal furnace temperatures to simulate (°C)
 nominal_temperatures = [400, 500, 600, 700, 800, 900, 1000, 1100]
+nominal_temperatures = np.arange(400, 1101, 25)
 
 # %%
 # Number of time steps for output
-n_steps = 200
+n_steps = 500
 
+
+# %% [markdown]
+# ## Diagnostic tools
 
 # %%
-
-def plot_rates_of_progress(gas):
+def plot_rates_of_progress(gas, top_n=3, show=True, verbose=True):
     """Plot forward (blue) and reverse (red) rates of progress for all reactions."""
-    # Plot forward rates
-    plt.plot(gas.forward_rates_of_progress, 'b.', label='Forward')
+    # Plot forward and reverse rates
+    plt.semilogy(gas.forward_rates_of_progress, 'b.', label='Forward')
+    plt.semilogy(gas.reverse_rates_of_progress, 'r.', label='Reverse')
 
-    # Plot reverse rates
-    plt.plot(gas.reverse_rates_of_progress, 'r.', label='Reverse')
-
-    # label the highest of each
-    top_forward = np.argsort(gas.forward_rates_of_progress)[-3:]
-    top_reverse = np.argsort(gas.reverse_rates_of_progress)[-3:]
+    # Label highest forward and reverse rates
+    top_forward = np.argsort(gas.forward_rates_of_progress)[-top_n:]
+    top_reverse = np.argsort(gas.reverse_rates_of_progress)[-top_n:]
     for idx in top_forward:
         plt.text(idx, gas.forward_rates_of_progress[idx], f'R{idx}', color='blue', fontsize=8)
-        print(f"R{idx}: {gas.reaction(idx).equation}  Forward ROP: {gas.forward_rates_of_progress[idx]:.3e}")
+        if verbose:
+            print(
+                f"R{idx}: {gas.reaction(idx).equation}  "
+                f"Forward ROP: {gas.forward_rates_of_progress[idx]:.3e}"
+            )
     for idx in top_reverse:
         plt.text(idx, gas.reverse_rates_of_progress[idx], f'R{idx}', color='red', fontsize=8)
-        print(f"R{idx}: {gas.reaction(idx).equation}  Reverse ROP: {gas.reverse_rates_of_progress[idx]:.3e}")
+        if verbose:
+            print(
+                f"R{idx}: {gas.reaction(idx).equation}  "
+                f"Reverse ROP: {gas.reverse_rates_of_progress[idx]:.3e}"
+            )
 
     plt.xlabel('Reaction')
     plt.ylabel('Rate of Progress')
     plt.title('Rates of Progress for All Reactions')
     plt.legend()
-    plt.show()
+    if show:
+        plt.show()
 
 # %%
 def find_culprit_reactions(gas, species_index=None, species_name=None):
@@ -302,7 +315,7 @@ def find_culprit_reactions(gas, species_index=None, species_name=None):
 
 # %%
 results = {}
-gas = ct.Solution(mechanism_file)
+
 
 # %%
 # Mass flow rate (constant throughout the reactor)
@@ -340,7 +353,6 @@ for nominal_T_C in nominal_temperatures:
 
     # Estimate total residence time for setting up time steps
     # Use a rough average velocity
-    # We do a distance-weighted average but should have a time-weighted
     T_avg_K = T_average_K(nominal_T_C)
     rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
     u_avg = mass_flow_rate / (rho_avg * cross_area)
@@ -374,10 +386,10 @@ for nominal_T_C in nominal_temperatures:
                 x_array = x_array[:n]
                 T_array = T_array[:n]
                 last_good_state = states[-1]
-                find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
-                plot_rates_of_progress(last_good_state)
+                #find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
+                #find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
+                #find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
+                #plot_rates_of_progress(last_good_state)
             break
 
         t_array[n] = sim.time
@@ -415,17 +427,20 @@ for nominal_T_C in nominal_temperatures:
 #
 
 # %%
-colors = {
-    400: '#4472C4', 500: '#EE7D31', 600: '#A5A5A5', 700: '#FFC002',
-    800: '#5B9CD5', 900: '#70AE47', 1000: '#264479', 1100: '#9E480E',
-    }
+def color_for_temperature(value, min_temp=400, max_temp=1100):
+    color_map = plt.get_cmap('plasma')
+    clipped_value = np.clip(value, min_temp, max_temp)
+    normalized = (clipped_value - min_temp) / (max_temp - min_temp)
+    return color_map(normalized)
+
+
 
 # %%
 # --- Temperature profiles: imposed vs simulated ---
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 x_fine = np.linspace(0, length, 500)
 for nominal_T_C in nominal_temperatures:
-    color = colors[nominal_T_C]
+    color = color_for_temperature(nominal_T_C)
     # Analytical profile
     T_analytical = np.array([T_profile_K(x, nominal_T_C) for x in x_fine]) - 273.15
     ax1.plot(x_fine * 100, T_analytical, '-', color=color, linewidth=1, alpha=0.5)
@@ -436,16 +451,22 @@ for nominal_T_C in nominal_temperatures:
 ax1.set_xlabel('Distance (cm)')
 ax1.set_ylabel('Temperature (°C)')
 ax1.set_title('Temperature profiles: target (solid) vs simulated (dashed)')
-ax1.legend()
+#ax1.legend()
 ax1.set_xlim(0, 60)
 # --- PFOA destruction ---
 for nominal_T_C in nominal_temperatures:
-    color = colors[nominal_T_C]
+    color = color_for_temperature(nominal_T_C)
     r = results[nominal_T_C]
     states = r['states']
     if 'PFOA' in states.species_names:
         idx = states.species_index('PFOA')
         X_PFOA = states.X[:, idx]
+        try:
+            idx = states.species_index('PFOArot')
+            X_PFOA += states.X[:, idx]
+        except ct.CanteraError:
+            pass
+
         X_PFOA_0 = X_PFOA[0] if X_PFOA[0] > 0 else 4.02e-4
         ax2.plot(r['x'] * 100, X_PFOA / X_PFOA_0, '-', color=color,
                  label=f'{nominal_T_C} °C')
@@ -453,19 +474,18 @@ for nominal_T_C in nominal_temperatures:
 ax2.set_xlabel('Distance (cm)')
 ax2.set_ylabel('[PFOA] / [PFOA]₀')
 ax2.set_title('PFOA along reactor')
-ax2.legend()
+#ax2.legend()
 ax2.set_xlim(0, 60)
 ax2.set_ylim(0, 1.1)
 
 plt.tight_layout()
 plt.show()
-plt.savefig('pfr_lagrangian_results.png', dpi=300)
 # %%
 # HF concentration along the reactor
 plt.figure(figsize=(5, 4))
 ax = plt.gca()
 for nominal_T_C in nominal_temperatures:
-    color = colors[nominal_T_C]
+    color = color_for_temperature(nominal_T_C)
     r = results[nominal_T_C]
     states = r['states']
     if 'HF' in states.species_names:
@@ -476,9 +496,76 @@ for nominal_T_C in nominal_temperatures:
 ax.set_xlabel('Distance (cm)')
 ax.set_ylabel('Mole fraction of HF')
 ax.set_title('HF formation along reactor')
-ax.legend()
+#ax.legend()
 ax.set_xlim(0, 60)
 plt.tight_layout()
 plt.show()
+
+# %%
+import ipywidgets as widgets
+from IPython.display import display, clear_output
+
+if not results:
+    raise RuntimeError("Run the simulation cells first so `results` is available.")
+
+available_temperatures = sorted(results.keys())
+
+temp_slider = widgets.SelectionSlider(
+    options=available_temperatures,
+    value=available_temperatures[0],
+    description='Nominal T (C):',
+    continuous_update=True,
+    readout=True,
+    style={'description_width': 'initial'},
+)
+
+state_slider = widgets.IntSlider(
+    value=0,
+    min=0,
+    max=max(len(results[available_temperatures[0]]['states']) - 1, 0),
+    step=1,
+    description='State index:',
+    continuous_update=True,
+    style={'description_width': 'initial'},
+)
+
+output = widgets.Output()
+
+def update_state_slider_range(change):
+    nominal_T_C = change['new']
+    n_states = len(results[nominal_T_C]['states'])
+    state_slider.max = max(n_states - 1, 0)
+    if state_slider.value > state_slider.max:
+        state_slider.value = state_slider.max
+
+def refresh_plot(*_):
+    nominal_T_C = temp_slider.value
+    state_idx = state_slider.value
+    state = results[nominal_T_C]['states'][state_idx]
+    position = results[nominal_T_C]['x'][state_idx]
+
+    with output:
+        clear_output(wait=True)
+        plt.figure(figsize=(10, 4))
+        plot_rates_of_progress(state, show=False, verbose=False)
+        plt.title(
+            f'Rates of Progress | Nominal T = {nominal_T_C} C | State = {state_idx} | Position = {position*100:.1f} cm'
+        )
+        plt.tight_layout()
+        plt.show()
+
+temp_slider.observe(update_state_slider_range, names='value')
+temp_slider.observe(refresh_plot, names='value')
+state_slider.observe(refresh_plot, names='value')
+
+display(widgets.VBox([temp_slider, state_slider, output]))
+refresh_plot()
+
+# %%
+state = results[800]['states'][-1]
+results[800]['x'][-1]
+
+# %%
+states.species_index('PFOArote')
 
 # %%
