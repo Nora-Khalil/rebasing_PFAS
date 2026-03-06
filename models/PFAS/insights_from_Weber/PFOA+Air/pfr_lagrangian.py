@@ -217,9 +217,46 @@ print(gas.reaction(i))
 print(gas.reaction(i).input_data)
 gas.TPX=800, ct.one_atm, 'HF:1.0, N2:10'
 gas.equilibrate('TP')
-gas()
 print(f"Forward rate constant: {gas.forward_rate_constants[i]:.3g}")
 print(f"Reverse rate constant: {gas.reverse_rate_constants[i]:.3g}")
+print(f"Standard enthalpy of reaction: {gas.delta_standard_enthalpy[i]/1e6:.3g} kJ/mol")
+print(f"Forward Ea: {gas.reaction(i).rate.input_data['rate-constant']['Ea']/1e6:.3g} kJ/mol")
+
+
+# %%
+# Taken from Nora's 'good_outdated' mechanism.
+yaml="""
+  equation: F + H + M <=> HF + M
+  type: three-body
+  rate-constant: {A: 1.7e+21, b: -2.0, Ea: 0.0}
+  efficiencies: {CH4: 2.0, CH3F: 6.0, HF: 2.0, H2O: 9.0, CF2O: 5.0,
+    CO2: 2.0, CO: 1.5, H2: 2.0}
+  note: |-
+    Library reaction: halogens_pdep
+"""
+new_rxn = ct.Reaction.from_yaml(yaml, gas)
+
+# %%
+# I can't get this to work. I get InputFileError thrown by ThirdBody::checkSpecies:
+# defines third-body efficiencies for undeclared species: 'CF2O', 'CH3F'
+
+# gas.update_user_data({'skip-undeclared-third-bodies': True})
+# gas.add_reaction(new_rxn)
+
+# %%
+new_rxn_data = gas.reactions()[i].input_data.copy()
+new_rxn_data['rate-constant']['Ea'] = gas.delta_standard_enthalpy[i]
+new_rxn = ct.Reaction.from_dict(new_rxn_data, kinetics=gas)
+gas.modify_reaction(i, new_rxn)
+
+print(gas.reaction(i))
+print(gas.reaction(i).input_data)
+gas.TPX=800, ct.one_atm, 'HF:1.0, N2:10'
+gas.equilibrate('TP')
+print(f"Forward rate constant: {gas.forward_rate_constants[i]:.3g}")
+print(f"Reverse rate constant: {gas.reverse_rate_constants[i]:.3g}")
+print(f"Standard enthalpy of reaction: {gas.delta_standard_enthalpy[i]/1e6:.3g} kJ/mol")
+print(f"Forward Ea: {gas.reaction(i).rate.input_data['rate-constant']['Ea']/1e6:.3g} kJ/mol")
 
 # %%
 # plot all forward (in blue) and reverse (in red) rate constants
@@ -227,9 +264,9 @@ plt.semilogy(gas.forward_rate_constants, 'b.', label='Forward')
 plt.semilogy(gas.reverse_rate_constants, 'r.', label='Reverse')
 
 for i in range(len(gas.reverse_rate_constants)):
-    if gas.reverse_rate_constants[i] > 1e14:
+    if gas.reverse_rate_constants[i] > 1e14 or i==101:
         plt.text(i, gas.reverse_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
-    if gas.forward_rate_constants[i] > 1e14:
+    if gas.forward_rate_constants[i] > 1e14 or i==101:
         plt.text(i, gas.forward_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
 plt.xlabel('Reaction Index')
 plt.ylabel('Rate Constant')
