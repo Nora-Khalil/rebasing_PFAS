@@ -600,6 +600,85 @@ plt.tight_layout()
 plt.show()
 
 # %%
+
+from collections import defaultdict
+def composition_from_formula(formula):
+    """Parse chemical formula into element counts, e.g. C2F5Br -> {'C':2, 'F':5, 'Br':1}"""
+    composition = defaultdict(int)
+    for element, count in re.findall(r'([A-Z][a-z]?)(\d*)', formula):
+        count = int(count) if count else 1
+        composition[element] += count
+    return dict(composition)
+
+# Test a few
+for f in 'HF C2F4 CH3CH2F CH4 CH2BrF'.split():
+    print(f"{f:10s} -> {composition_from_formula(f)}")
+
+
+# %%
+
+def find_species_index(phase, formula):
+    """Find species index by formula"""
+    composition = composition_from_formula(formula)
+    isomers = phase.find_isomers(composition)
+    if len(isomers) != 1:
+        raise ValueError(f"Found {len(isomers)} isomers of {formula}: {' '.join(isomers)}")
+    return gas.species_index(isomers[0])
+
+# Test it
+for f in gas.species()[:51:2]:
+    formula = ''.join(k + (str(int(v)) if v > 1 else '') for k, v in sorted(f.composition.items()))
+    try:
+        idx = find_species_index(gas, formula)
+        print(f"{formula:10s} -> {f.name:20s} -> index {idx}")
+    except ValueError as e:
+        print(f"{formula:10s} -> {e}")
+
+
+
+# %%
+gas.species_index('PFOA')
+
+
+# %%
+nominal_T_C = 1050 # Weber figure 10
+color = color_for_temperature(nominal_T_C)
+r = results[nominal_T_C]
+
+color_dict = {'C2F6':'red',
+              'CF4':'green',
+              'PFOA':'deepskyblue',
+              'COF2':'grey',
+              'CF2':'black',
+              'CF3':'orange',
+              'F':'grey'}
+
+for plot in ['C2F6 CF4 PFOA COF2', 'CF2 CF3 F']:
+    plt.figure(figsize=(5, 3))
+    ax = plt.gca()
+    for name in plot.split():
+        try:
+            idx = gas.species_index(name)
+        except CanteraError:
+            idx = find_species_index(gas, name)
+        #print(f"{name:10s} -> index {idx}")
+        states = r['states']
+        molfrac = states.X[:, idx]
+        ax.plot(r['x'] * 100, molfrac*1e6, '-',
+                    label=name, color=color_dict.get(name, 'blue'))
+    ax.set_xlabel('Distance (cm)')
+    ax.set_ylabel('Mole fraction (ppm)')
+    ax.set_title(f"Nominal T = {nominal_T_C} ºC")
+    ax.legend()
+    ax.set_xlim(0, 60)
+    plt.tight_layout()
+    plt.show()
+
+# %% [markdown]
+# ![Figure 10 from Weber paper](https://pubs.acs.org/cms/10.1021/acs.jpca.4c01909/asset/images/large/jp4c01909_0010.jpeg)
+#
+
+# %%
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 
