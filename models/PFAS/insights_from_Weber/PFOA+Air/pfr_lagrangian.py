@@ -211,6 +211,36 @@ assert os.path.isfile(mechanism_file), f"Mechanism file not found: {mechanism_fi
 gas = ct.Solution(mechanism_file)
 gas()
 
+# %% [markdown]
+# ## Fixing HF + M <=> F + H + M
+
+# %%
+gas.TPX=800, ct.one_atm, 'HF:1.0, N2:10'
+gas.equilibrate('TP')
+
+plt.figure(figsize=(8, 3))
+# plot all forward (in blue) and reverse (in red) rate constants
+plt.semilogy(gas.forward_rate_constants, 'b.', label='Forward')
+plt.semilogy(gas.reverse_rate_constants, 'r.', label='Reverse')
+
+for i in range(len(gas.reverse_rate_constants)):
+    if gas.reverse_rate_constants[i] > 1e14 or i==101:
+        plt.text(i, gas.reverse_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
+    if gas.forward_rate_constants[i] > 1e14 or i==101:
+        plt.text(i, gas.forward_rate_constants[i], f"{i}", fontsize=8, ha='center', va='bottom')
+plt.xlabel('Reaction Index')
+plt.ylabel('Rate Constant')
+plt.ylim(1e-20, max([1e20]+list(gas.forward_rate_constants)+list(gas.reverse_rate_constants)))
+plt.legend()
+plt.show()
+
+# %% [markdown]
+#
+# The rate for HF + M <=> F + H + M has a barrier that is lower than the endorthermicity of the reaction, which gives a very fast reverse rate constant, making it hard for the solver.
+#
+# We could replace the rate with a better one from another model, but that is hard to do on the fly because of the third-body efficiencies. Instead, we can just increase the barrier to match the endorthermicity. This might make the reaction too slow at some temperatures. But at least the solver doesn't crash.
+#
+
 # %%
 i = 101
 print(gas.reaction(i))
@@ -236,7 +266,6 @@ yaml="""
 """
 new_rxn = ct.Reaction.from_yaml(yaml, gas)
 
-# %%
 # I can't get this to work. I get InputFileError thrown by ThirdBody::checkSpecies:
 # defines third-body efficiencies for undeclared species: 'CF2O', 'CH3F'
 
@@ -244,8 +273,13 @@ new_rxn = ct.Reaction.from_yaml(yaml, gas)
 # gas.add_reaction(new_rxn)
 
 # %%
+# Instead, keep the same form of the rate equation, and just change the Ea parameter
+i = 101
 new_rxn_data = gas.reactions()[i].input_data.copy()
-new_rxn_data['rate-constant']['Ea'] = gas.delta_standard_enthalpy[i]
+old_Ea = new_rxn_data['rate-constant']['Ea']
+new_Ea = gas.delta_standard_enthalpy[i]
+print(f"Changing Ea from {old_Ea/1e6:.3g} kJ/mol to {new_Ea/1e6:.3g} kJ/mol")
+new_rxn_data['rate-constant']['Ea'] = new_Ea
 new_rxn = ct.Reaction.from_dict(new_rxn_data, kinetics=gas)
 gas.modify_reaction(i, new_rxn)
 
@@ -273,13 +307,6 @@ plt.ylabel('Rate Constant')
 plt.ylim(1e-20, 1e20)
 plt.legend()
 plt.show()
-
-# %%
-
-rate = gas.reaction(i).rate.input_data['rate-constant']
-print(rate)
-
-
 
 # %%
 # Reactor geometry
@@ -341,7 +368,9 @@ def plot_rates_of_progress(gas, top_n=3, show=True, verbose=True):
                 f"R{idx}: {gas.reaction(idx).equation}  "
                 f"Reverse ROP: {gas.reverse_rates_of_progress[idx]:.3e}"
             )
-
+    max_rop = max(max(gas.forward_rates_of_progress), max(gas.reverse_rates_of_progress))
+    tenth_top = sorted(list(gas.forward_rates_of_progress) + list(gas.reverse_rates_of_progress))[-10]
+    plt.ylim(tenth_top/1e10, max_rop*10)
     plt.xlabel('Reaction')
     plt.ylabel('Rate of Progress')
     plt.title('Rates of Progress for All Reactions')
@@ -551,7 +580,7 @@ plt.tight_layout()
 plt.show()
 # %%
 # HF concentration along the reactor
-plt.figure(figsize=(5, 4))
+plt.figure(figsize=(5, 3))
 ax = plt.gca()
 for nominal_T_C in nominal_temperatures:
     color = color_for_temperature(nominal_T_C)
@@ -632,4 +661,6 @@ refresh_plot()
 
 # %%
 state = results[800]['states'][-1]
-results[800]['x'][-1]
+dir(state)
+
+# %%
