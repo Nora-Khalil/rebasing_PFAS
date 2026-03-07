@@ -355,11 +355,6 @@ initial_composition = {
 nominal_temperatures = [400, 500, 600, 700, 800, 900, 1000, 1100]
 nominal_temperatures = np.arange(400, 1101, 25)
 
-# %%
-# Number of time steps for output
-n_steps = 500
-
-
 # %% [markdown]
 # ## Diagnostic tools
 
@@ -474,72 +469,61 @@ for nominal_T_C in nominal_temperatures:
     sim.initialize()
 
 
-    # Estimate total residence time for setting up time steps
-    # Use a rough average velocity
+    # Estimate total residence time using a rough average velocity.
+    # The integrator still chooses adaptive internal timesteps via sim.step().
     T_avg_K = T_average_K(nominal_T_C)
     rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
     u_avg = mass_flow_rate / (rho_avg * cross_area)
     t_total_est = length / u_avg
-    dt = t_total_est / n_steps
 
     print(f"  Estimated avg velocity: {u_avg:.4f} m/s")
     print(f"  Estimated residence time: {t_total_est:.6f} s")
-    print(f"  Time step: {dt:.6e} s")
 
-    # Storage for results
-    t_array = np.zeros(n_steps)
-    x_array = np.zeros(n_steps)
-    T_array = np.zeros(n_steps)
+    # Storage for results (adaptive number of points)
+    t_values = []
+    x_values = []
+    T_values = []
     states = ct.SolutionArray(reactor.phase)
 
     # Integrate
-    for n in range(n_steps):
-        t_i = (n + 1) * dt
+    n = 0
+    hit_solver_error = False
+    while reactor.position < length:
+        n += 1
         try:
-            sim.advance(t_i)
+            sim.step()
         except ct.CanteraError as e:
-            print(f"  Error occurred at step {n+1}: {e}")
+            hit_solver_error = True
+            print(f"  Error occurred at step {n}: {e}")
             m = re.search(r"Components with largest weighted error estimates:\n(\d+).*\n(\d+).*\n(\d+)", str(e))
             if m:
                 print(f"  Problematic components: {m.group(1)}, {m.group(2)}, {m.group(3)}")
                 print(sim.component_name(int(m.group(1))))
                 print(sim.component_name(int(m.group(2))))
                 print(sim.component_name(int(m.group(3))))
-                t_array = t_array[:n] # truncate
-                x_array = x_array[:n]
-                T_array = T_array[:n]
-                last_good_state = states[-1]
-                find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
-                #plot_rates_of_progress(last_good_state)
+                if len(states) > 0:
+                    last_good_state = states[-1]
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
+                    #plot_rates_of_progress(last_good_state)
             break
 
-        t_array[n] = sim.time
-        x_array[n] = reactor.position
-        T_array[n] = reactor.phase.T
+        t_values.append(sim.time)
+        x_values.append(reactor.position)
+        T_values.append(reactor.phase.T)
         states.append(reactor.phase.state)
 
-        # Stop if we've passed the end of the reactor
-        if reactor.position >= length:
-            t_array = t_array[:n+1]
-            x_array = x_array[:n+1]
-            T_array = T_array[:n+1]
-            print(f"  Reached end of reactor at step {n+1}, "
-                  f"t = {sim.time:.6f} s, x = {reactor.position:.4f} m")
-            break
+    if hit_solver_error:
+        print(f"  Final position before failure: x = {reactor.position:.4f} m (target: {length:.4f} m)")
     else:
-        print(f"  Final position: x = {reactor.position:.4f} m (target: {length:.4f} m)")
-        if reactor.position < length * 0.95:
-            print(
-                "  WARNING: Did not reach end of reactor. "
-                "Consider increasing n_steps or t_total_est."
-            )
+        print(f"  Reached end of reactor at step {n}, "
+              f"t = {sim.time:.6f} s, x = {reactor.position:.4f} m")
 
     results[nominal_T_C] = {
-        't': t_array,
-        'x': x_array,
-        'T': T_array,
+        't': np.array(t_values),
+        'x': np.array(x_values),
+        'T': np.array(T_values),
         'states': states,
     }
 
