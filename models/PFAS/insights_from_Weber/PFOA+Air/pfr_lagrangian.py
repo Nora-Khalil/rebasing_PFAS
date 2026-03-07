@@ -672,6 +672,7 @@ for plot in ['C2F6 CF4 PFOA COF2', 'CF2 CF3 F']:
     ax.legend()
     ax.set_xlim(0, 60)
     plt.tight_layout()
+    plt.savefig(f"species_profiles_{nominal_T_C}C_{plot.replace(' ', '_')}.png", dpi=300)
     plt.show()
 
 # %% [markdown]
