@@ -27,8 +27,27 @@
 # %%
 import os
 import re
+import matplotlib
 import cantera as ct
 import numpy as np
+
+
+def _running_in_notebook():
+    """Return True when executed in a Jupyter notebook kernel."""
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()
+        return shell is not None and shell.__class__.__name__ == "ZMQInteractiveShell"
+    except Exception:
+        return False
+
+
+RUNNING_IN_NOTEBOOK = _running_in_notebook()
+
+# Script runs should not open GUI windows or block on plt.show().
+if not RUNNING_IN_NOTEBOOK:
+    matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 # %% [markdown]
@@ -680,64 +699,65 @@ for plot in ['C2F6 CF4 PFOA COF2', 'CF2 CF3 F']:
 #
 
 # %%
-import ipywidgets as widgets
-from IPython.display import display, clear_output
+if RUNNING_IN_NOTEBOOK:
+    import ipywidgets as widgets
+    from IPython.display import display, clear_output
 
-if not results:
-    raise RuntimeError("Run the simulation cells first so `results` is available.")
+    if not results:
+        raise RuntimeError("Run the simulation cells first so `results` is available.")
 
-available_temperatures = sorted(results.keys())
+    available_temperatures = sorted(results.keys())
 
-temp_slider = widgets.SelectionSlider(
-    options=available_temperatures,
-    value=available_temperatures[0],
-    description='Nominal T (C):',
-    continuous_update=True,
-    readout=True,
-    style={'description_width': 'initial'},
-)
+    temp_slider = widgets.SelectionSlider(
+        options=available_temperatures,
+        value=available_temperatures[0],
+        description='Nominal T (C):',
+        continuous_update=True,
+        readout=True,
+        style={'description_width': 'initial'},
+    )
 
-state_slider = widgets.IntSlider(
-    value=0,
-    min=0,
-    max=max(len(results[available_temperatures[0]]['states']) - 1, 0),
-    step=1,
-    description='State index:',
-    continuous_update=True,
-    style={'description_width': 'initial'},
-)
+    state_slider = widgets.IntSlider(
+        value=0,
+        min=0,
+        max=max(len(results[available_temperatures[0]]['states']) - 1, 0),
+        step=1,
+        description='State index:',
+        continuous_update=True,
+        style={'description_width': 'initial'},
+    )
 
-output = widgets.Output()
+    output = widgets.Output()
 
-def update_state_slider_range(change):
-    nominal_T_C = change['new']
-    n_states = len(results[nominal_T_C]['states'])
-    state_slider.max = max(n_states - 1, 0)
-    if state_slider.value > state_slider.max:
-        state_slider.value = state_slider.max
+    def update_state_slider_range(change):
+        nominal_T_C = change['new']
+        n_states = len(results[nominal_T_C]['states'])
+        state_slider.max = max(n_states - 1, 0)
+        if state_slider.value > state_slider.max:
+            state_slider.value = state_slider.max
 
-def refresh_plot(*_):
-    nominal_T_C = temp_slider.value
-    state_idx = state_slider.value
-    state = results[nominal_T_C]['states'][state_idx]
-    position = results[nominal_T_C]['x'][state_idx]
+    def refresh_plot(*_):
+        nominal_T_C = temp_slider.value
+        state_idx = state_slider.value
+        state = results[nominal_T_C]['states'][state_idx]
+        position = results[nominal_T_C]['x'][state_idx]
 
-    with output:
-        clear_output(wait=True)
-        plt.figure(figsize=(10, 4))
-        plot_rates_of_progress(state, show=False, verbose=False)
-        plt.title(
-            f'Rates of Progress | Nominal T = {nominal_T_C} C | State = {state_idx} | Position = {position*100:.1f} cm'
-        )
-        plt.tight_layout()
-        plt.show()
+        with output:
+            clear_output(wait=True)
+            plt.figure(figsize=(10, 4))
+            plot_rates_of_progress(state, show=False, verbose=False)
+            plt.title(
+                f'Rates of Progress | Nominal T = {nominal_T_C} C | State = {state_idx} | Position = {position*100:.1f} cm'
+            )
+            plt.tight_layout()
+            plt.show()
 
-temp_slider.observe(update_state_slider_range, names='value')
-temp_slider.observe(refresh_plot, names='value')
-state_slider.observe(refresh_plot, names='value')
+    temp_slider.observe(update_state_slider_range, names='value')
+    temp_slider.observe(refresh_plot, names='value')
+    state_slider.observe(refresh_plot, names='value')
 
-display(widgets.VBox([temp_slider, state_slider, output]))
-refresh_plot()
+    display(widgets.VBox([temp_slider, state_slider, output]))
+    refresh_plot()
 
 # %%
 state = results[800]['states'][-1]
