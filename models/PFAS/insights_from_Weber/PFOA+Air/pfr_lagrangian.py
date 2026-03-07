@@ -468,17 +468,6 @@ for nominal_T_C in nominal_temperatures:
     sim.preconditioner = ct.AdaptivePreconditioner()
     sim.initialize()
 
-
-    # Estimate total residence time using a rough average velocity.
-    # The integrator still chooses adaptive internal timesteps via sim.step().
-    T_avg_K = T_average_K(nominal_T_C)
-    rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
-    u_avg = mass_flow_rate / (rho_avg * cross_area)
-    t_total_est = length / u_avg
-
-    print(f"  Estimated avg velocity: {u_avg:.4f} m/s")
-    print(f"  Estimated residence time: {t_total_est:.6f} s")
-
     # Storage for results (adaptive number of points)
     t_values = []
     x_values = []
