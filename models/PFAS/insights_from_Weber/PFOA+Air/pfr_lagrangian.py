@@ -468,6 +468,12 @@ for nominal_T_C in nominal_temperatures:
     # Create reactor network
     sim = ct.ReactorNet([reactor])
 
+    # preconditioner -  seems to work, to speed the solver up!
+    sim.derivative_settings = {"skip-third-bodies":True, "skip-falloff":True}
+    sim.preconditioner = ct.AdaptivePreconditioner()
+    sim.initialize()
+
+
     # Estimate total residence time for setting up time steps
     # Use a rough average velocity
     T_avg_K = T_average_K(nominal_T_C)
