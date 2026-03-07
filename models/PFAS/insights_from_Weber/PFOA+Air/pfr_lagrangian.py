@@ -344,7 +344,7 @@ length = 0.60  # m (60 cm)
 # %%
 # Initial composition (mole fractions)
 initial_composition = {
-    "PFOA": 200e-6, # 4.02e-4,   # 402 ppm
+    "PFOA": 4.02e-4,   # 402 ppm
     "H2O": 7.50e-4,    # 750 ppm
     "O2": 0.20975808,
     "N2": 0.78908992,
