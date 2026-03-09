@@ -27,8 +27,27 @@
 # %%
 import os
 import re
+import matplotlib
 import cantera as ct
 import numpy as np
+
+
+def _running_in_notebook():
+    """Return True when executed in a Jupyter notebook kernel."""
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()
+        return shell is not None and shell.__class__.__name__ == "ZMQInteractiveShell"
+    except Exception:
+        return False
+
+
+RUNNING_IN_NOTEBOOK = _running_in_notebook()
+
+# Script runs should not open GUI windows or block on plt.show().
+if not RUNNING_IN_NOTEBOOK:
+    matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 # %% [markdown]
@@ -336,11 +355,6 @@ initial_composition = {
 nominal_temperatures = [400, 500, 600, 700, 800, 900, 1000, 1100]
 nominal_temperatures = np.arange(400, 1101, 25)
 
-# %%
-# Number of time steps for output
-n_steps = 500
-
-
 # %% [markdown]
 # ## Diagnostic tools
 
@@ -449,72 +463,56 @@ for nominal_T_C in nominal_temperatures:
     # Create reactor network
     sim = ct.ReactorNet([reactor])
 
-    # Estimate total residence time for setting up time steps
-    # Use a rough average velocity
-    T_avg_K = T_average_K(nominal_T_C)
-    rho_avg = gas.density * T_inlet_K / T_avg_K  # ideal gas approximation
-    u_avg = mass_flow_rate / (rho_avg * cross_area)
-    t_total_est = length / u_avg
-    dt = t_total_est / n_steps
+    # preconditioner -  seems to work, to speed the solver up!
+    sim.derivative_settings = {"skip-third-bodies":True, "skip-falloff":True}
+    sim.preconditioner = ct.AdaptivePreconditioner()
+    sim.initialize()
 
-    print(f"  Estimated avg velocity: {u_avg:.4f} m/s")
-    print(f"  Estimated residence time: {t_total_est:.6f} s")
-    print(f"  Time step: {dt:.6e} s")
-
-    # Storage for results
-    t_array = np.zeros(n_steps)
-    x_array = np.zeros(n_steps)
-    T_array = np.zeros(n_steps)
+    # Storage for results (adaptive number of points)
+    t_values = []
+    x_values = []
+    T_values = []
     states = ct.SolutionArray(reactor.phase)
 
     # Integrate
-    for n in range(n_steps):
-        t_i = (n + 1) * dt
+    n = 0
+    hit_solver_error = False
+    while reactor.position < length:
+        n += 1
         try:
-            sim.advance(t_i)
+            sim.step()
         except ct.CanteraError as e:
-            print(f"  Error occurred at step {n+1}: {e}")
+            hit_solver_error = True
+            print(f"  Error occurred at step {n}: {e}")
             m = re.search(r"Components with largest weighted error estimates:\n(\d+).*\n(\d+).*\n(\d+)", str(e))
             if m:
                 print(f"  Problematic components: {m.group(1)}, {m.group(2)}, {m.group(3)}")
                 print(sim.component_name(int(m.group(1))))
                 print(sim.component_name(int(m.group(2))))
                 print(sim.component_name(int(m.group(3))))
-                t_array = t_array[:n] # truncate
-                x_array = x_array[:n]
-                T_array = T_array[:n]
-                last_good_state = states[-1]
-                find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
-                find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
-                #plot_rates_of_progress(last_good_state)
+                if len(states) > 0:
+                    last_good_state = states[-1]
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(1))-1)
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(2))-1)
+                    find_culprit_reactions(last_good_state, species_index=int(m.group(3))-1)
+                    #plot_rates_of_progress(last_good_state)
             break
 
-        t_array[n] = sim.time
-        x_array[n] = reactor.position
-        T_array[n] = reactor.phase.T
+        t_values.append(sim.time)
+        x_values.append(reactor.position)
+        T_values.append(reactor.phase.T)
         states.append(reactor.phase.state)
 
-        # Stop if we've passed the end of the reactor
-        if reactor.position >= length:
-            t_array = t_array[:n+1]
-            x_array = x_array[:n+1]
-            T_array = T_array[:n+1]
-            print(f"  Reached end of reactor at step {n+1}, "
-                  f"t = {sim.time:.6f} s, x = {reactor.position:.4f} m")
-            break
+    if hit_solver_error:
+        print(f"  Final position before failure: x = {reactor.position:.4f} m (target: {length:.4f} m)")
     else:
-        print(f"  Final position: x = {reactor.position:.4f} m (target: {length:.4f} m)")
-        if reactor.position < length * 0.95:
-            print(
-                "  WARNING: Did not reach end of reactor. "
-                "Consider increasing n_steps or t_total_est."
-            )
+        print(f"  Reached end of reactor at step {n}, "
+              f"t = {sim.time:.6f} s, x = {reactor.position:.4f} m")
 
     results[nominal_T_C] = {
-        't': t_array,
-        'x': x_array,
-        'T': T_array,
+        't': np.array(t_values),
+        'x': np.array(x_values),
+        'T': np.array(T_values),
         'states': states,
     }
 
@@ -672,6 +670,7 @@ for plot in ['C2F6 CF4 PFOA COF2', 'CF2 CF3 F']:
     ax.legend()
     ax.set_xlim(0, 60)
     plt.tight_layout()
+    plt.savefig(f"species_profiles_{nominal_T_C}C_{plot.replace(' ', '_')}.png", dpi=300)
     plt.show()
 
 # %% [markdown]
@@ -679,64 +678,65 @@ for plot in ['C2F6 CF4 PFOA COF2', 'CF2 CF3 F']:
 #
 
 # %%
-import ipywidgets as widgets
-from IPython.display import display, clear_output
+if RUNNING_IN_NOTEBOOK:
+    import ipywidgets as widgets
+    from IPython.display import display, clear_output
 
-if not results:
-    raise RuntimeError("Run the simulation cells first so `results` is available.")
+    if not results:
+        raise RuntimeError("Run the simulation cells first so `results` is available.")
 
-available_temperatures = sorted(results.keys())
+    available_temperatures = sorted(results.keys())
 
-temp_slider = widgets.SelectionSlider(
-    options=available_temperatures,
-    value=available_temperatures[0],
-    description='Nominal T (C):',
-    continuous_update=True,
-    readout=True,
-    style={'description_width': 'initial'},
-)
+    temp_slider = widgets.SelectionSlider(
+        options=available_temperatures,
+        value=available_temperatures[0],
+        description='Nominal T (C):',
+        continuous_update=True,
+        readout=True,
+        style={'description_width': 'initial'},
+    )
 
-state_slider = widgets.IntSlider(
-    value=0,
-    min=0,
-    max=max(len(results[available_temperatures[0]]['states']) - 1, 0),
-    step=1,
-    description='State index:',
-    continuous_update=True,
-    style={'description_width': 'initial'},
-)
+    state_slider = widgets.IntSlider(
+        value=0,
+        min=0,
+        max=max(len(results[available_temperatures[0]]['states']) - 1, 0),
+        step=1,
+        description='State index:',
+        continuous_update=True,
+        style={'description_width': 'initial'},
+    )
 
-output = widgets.Output()
+    output = widgets.Output()
 
-def update_state_slider_range(change):
-    nominal_T_C = change['new']
-    n_states = len(results[nominal_T_C]['states'])
-    state_slider.max = max(n_states - 1, 0)
-    if state_slider.value > state_slider.max:
-        state_slider.value = state_slider.max
+    def update_state_slider_range(change):
+        nominal_T_C = change['new']
+        n_states = len(results[nominal_T_C]['states'])
+        state_slider.max = max(n_states - 1, 0)
+        if state_slider.value > state_slider.max:
+            state_slider.value = state_slider.max
 
-def refresh_plot(*_):
-    nominal_T_C = temp_slider.value
-    state_idx = state_slider.value
-    state = results[nominal_T_C]['states'][state_idx]
-    position = results[nominal_T_C]['x'][state_idx]
+    def refresh_plot(*_):
+        nominal_T_C = temp_slider.value
+        state_idx = state_slider.value
+        state = results[nominal_T_C]['states'][state_idx]
+        position = results[nominal_T_C]['x'][state_idx]
 
-    with output:
-        clear_output(wait=True)
-        plt.figure(figsize=(10, 4))
-        plot_rates_of_progress(state, show=False, verbose=False)
-        plt.title(
-            f'Rates of Progress | Nominal T = {nominal_T_C} C | State = {state_idx} | Position = {position*100:.1f} cm'
-        )
-        plt.tight_layout()
-        plt.show()
+        with output:
+            clear_output(wait=True)
+            plt.figure(figsize=(10, 4))
+            plot_rates_of_progress(state, show=False, verbose=False)
+            plt.title(
+                f'Rates of Progress | Nominal T = {nominal_T_C} C | State = {state_idx} | Position = {position*100:.1f} cm'
+            )
+            plt.tight_layout()
+            plt.show()
 
-temp_slider.observe(update_state_slider_range, names='value')
-temp_slider.observe(refresh_plot, names='value')
-state_slider.observe(refresh_plot, names='value')
+    temp_slider.observe(update_state_slider_range, names='value')
+    temp_slider.observe(refresh_plot, names='value')
+    state_slider.observe(refresh_plot, names='value')
 
-display(widgets.VBox([temp_slider, state_slider, output]))
-refresh_plot()
+    display(widgets.VBox([temp_slider, state_slider, output]))
+    refresh_plot()
 
 # %%
 state = results[800]['states'][-1]
