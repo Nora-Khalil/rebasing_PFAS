@@ -1,4 +1,10 @@
 thermolibs = [
+
+###### uncomment to generate the RMG model of the present work ########
+#'NCSU_2025_revised',
+#'C1_C2_Fluorine',
+#'PFCA_thermo',
+    
 'primaryThermoLibrary',
 'FFCM1(-)',
 'halogens',
@@ -26,6 +32,17 @@ frequenciesLibraries = ['halogens_G4'],
 kineticsEstimator = 'rate rules',
 )
 
+###### uncomment to generate the RMG model of the present work 
+#database(
+#thermoLibraries = thermolibs,
+#reactionLibraries = ['FFCM1(-)', 'halogens_pdep'],
+#seedMechanisms = [ "ANL_Brown_pdep", "ANL_Brown_pdep_2", 'Brown_difluoromethane_seed', "PFOA_unimolecular_decomp"],
+#kineticsDepositories = ['training'],
+#kineticsFamilies = ['default','PFAS', 'halogens','Disproportionation-Y'],
+#frequenciesLibraries = ['halogens_G4'],
+#kineticsEstimator = 'rate rules',
+#)
+
 
 #in N2 bath gas 
 species(
@@ -51,8 +68,7 @@ simpleReactor(
         terminationConversion={
         "PFOA": 0.9999,
         },
-        #terminationRateRatio=1e-6,
-        terminationTime=(4,'s'), #source says its in PFR for 2 and 25 s, should i try and change this to 2 
+        terminationTime=(4,'s'), 
 )
     
 model(
@@ -86,14 +102,12 @@ simulator(
     sens_rtol = 0.0001,
 )
 
-#left the same as when David ran his refrigerants
 generatedSpeciesConstraints(
     allowed=['input species','seed mechanisms','reaction libraries'],
     maximumCarbonAtoms=8, 
-    # maximumOxygenAtoms=4,
-    maximumRadicalElectrons=1, #adding in 
-    maximumSingletCarbenes=1, #adding in 
-    maximumCarbeneRadicals=0, #adding in
+    maximumRadicalElectrons=1, 
+    maximumSingletCarbenes=1,
+    maximumCarbeneRadicals=0, 
     allowSingletO2 = True,
 )
 
