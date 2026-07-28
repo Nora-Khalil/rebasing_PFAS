@@ -1,0 +1,30 @@
+- equation: C3F8 <=> CF4 + C2F4
+  rate-constant:
+    A: 3.8e+10 s^-1
+    n: 1.49
+    Ea: 137246 cal/mol
+- equation: C3F6O <=> CF2O + C2F4
+  rate-constant:
+    A: 1.87e+08 s^-1
+    n: 1.21
+    Ea: 82079.9 cal/mol
+- equation: C4F8O <=> CF2O + C3F6
+  rate-constant:
+    A: 2.46e+06 s^-1
+    n: 1.56
+    Ea: 80833 cal/mol
+- equation: C3H8 <=> CH4 + C2H4
+  rate-constant:
+    A: 5.72e-35 s^-1
+    n: 14.26
+    Ea: 87732.9 cal/mol
+- equation: C3H6O <=> CH2O + C2H4
+  rate-constant:
+    A: 1570 s^-1
+    n: 2.7
+    Ea: 76386.5 cal/mol
+- equation: C4H8O <=> CH2O + C3H6
+  rate-constant:
+    A: 413000 s^-1
+    n: 1.73
+    Ea: 69957.8 cal/mol

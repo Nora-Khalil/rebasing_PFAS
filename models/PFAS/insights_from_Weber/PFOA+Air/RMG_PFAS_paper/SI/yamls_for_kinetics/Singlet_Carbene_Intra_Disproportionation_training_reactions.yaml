@@ -1,0 +1,20 @@
+- equation: C2F4 <=> C2F4-2
+  rate-constant:
+    A: 5.731e+10 s^-1
+    n: 0.827
+    Ea: 35644 cal/mol
+- equation: CH3CF <=> CH2CHF
+  rate-constant:
+    A: 1e+13 s^-1
+    n: 0.0
+    Ea: 15 kcal/mol
+- equation: CH3CCl <=> CH2CHCl
+  rate-constant:
+    A: 1e+13 s^-1
+    n: 0.0
+    Ea: 10 kcal/mol
+- equation: CH3CH2CBr <=> CH3CHCHBr
+  rate-constant:
+    A: 1e+13 s^-1
+    n: 0.0
+    Ea: 4.2 kcal/mol

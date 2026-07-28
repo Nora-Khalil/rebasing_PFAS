@@ -1,0 +1,15 @@
+- equation: C3H3BrO <=> C2H3Br + CO
+  rate-constant:
+    A: 7.3531e+12 s^-1
+    n: 0.729529
+    Ea: 237.53 kJ/mol
+- equation: C3H3ClO <=> C2H3Cl + CO
+  rate-constant:
+    A: 6.43849e+12 s^-1
+    n: 0.705824
+    Ea: 225.715 kJ/mol
+- equation: C3H3FO <=> C2H3F + CO
+  rate-constant:
+    A: 6.62099e+12 s^-1
+    n: 0.640083
+    Ea: 177.782 kJ/mol

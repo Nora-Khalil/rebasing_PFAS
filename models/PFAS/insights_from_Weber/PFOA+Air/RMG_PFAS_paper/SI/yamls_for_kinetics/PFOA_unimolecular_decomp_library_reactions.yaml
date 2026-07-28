@@ -1,0 +1,55 @@
+- equation: PF8acid <=> CF2s + PF7acid
+  rate-constant:
+    A: 1.16993e+13 s^-1
+    n: 0.0
+    Ea: 356505 J/mol
+- equation: PF8acid <=> CF3r + rPF7acid
+  rate-constant:
+    A: 5.42053e+15 s^-1
+    n: 0.0
+    Ea: 363267 J/mol
+- equation: PF8acid <=> PF2alkylr + rPF6acid
+  rate-constant:
+    A: 6.81764e+16 s^-1
+    n: 0.0
+    Ea: 345596 J/mol
+- equation: PF8acid <=> PF3alkylr + rPF5acid
+  rate-constant:
+    A: 5.77293e+18 s^-1
+    n: 0.0
+    Ea: 345168 J/mol
+- equation: PF8acid <=> PF4alkylr + rPF4acid
+  rate-constant:
+    A: 3.7357e+17 s^-1
+    n: 0.0
+    Ea: 335622 J/mol
+- equation: PF8acid <=> PF5alkylr + rPF3acid
+  rate-constant:
+    A: 8.04493e+16 s^-1
+    n: 0.0
+    Ea: 349065 J/mol
+- equation: PF8acid <=> PF6alkylr + rPF2acid
+  rate-constant:
+    A: 9.97238e+16 s^-1
+    n: 0.0
+    Ea: 338695 J/mol
+- equation: PF8acid <=> CO2 + PF7-1-H
+  rate-constant:
+    A: 5.66565e+13 s^-1
+    n: 0.0
+    Ea: 301929 J/mol
+- equation: PF8acid <=> CO2 + HF + PF7-1-ene
+  rate-constant:
+    A: 1.11328e+13 s^-1
+    n: 0.0
+    Ea: 283306 J/mol
+- equation: PF8acid <=> PF7alkylr + rCOOH
+  rate-constant:
+    A: 1.0044e+16 s^-1
+    n: 0.0
+    Ea: 355535 J/mol
+- equation: PF8acid <=> HF + PF8lactone
+  rate-constant:
+    A: 1.55075e+12 s^-1
+    n: 0.0
+    Ea: 222334 J/mol

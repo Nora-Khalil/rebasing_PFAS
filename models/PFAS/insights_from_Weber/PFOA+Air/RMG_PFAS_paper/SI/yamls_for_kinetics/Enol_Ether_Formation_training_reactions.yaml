@@ -1,0 +1,25 @@
+- equation: C3F6O <=> C3F6O-2
+  rate-constant:
+    A: 3.91e+09 s^-1
+    n: 0.87
+    Ea: 41067.8 cal/mol
+- equation: C4F8O <=> C4F8O-2
+  rate-constant:
+    A: 3.83e+09 s^-1
+    n: 0.88
+    Ea: 40777.3 cal/mol
+- equation: C5F10O <=> C5F10O-2
+  rate-constant:
+    A: 3.16e+07 s^-1
+    n: 1.56
+    Ea: 40037.2 cal/mol
+- equation: C3H6O <=> C3H6O-2
+  rate-constant:
+    A: 532 s^-1
+    n: 3.01
+    Ea: 19888.8 cal/mol
+- equation: C4H8O <=> C4H8O-2
+  rate-constant:
+    A: 242 s^-1
+    n: 3.11
+    Ea: 19988 cal/mol

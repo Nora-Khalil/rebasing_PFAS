@@ -1,0 +1,20 @@
+- equation: O2 + CF2 <=> CF2O2
+  rate-constant:
+    A: 2560.47 cm^3/(mol*s)
+    n: 2.72845
+    Ea: 64.1698 kJ/mol
+- equation: O2 + CHF <=> CHFO2
+  rate-constant:
+    A: 47280.1 cm^3/(mol*s)
+    n: 2.41746
+    Ea: 6.84749 kJ/mol
+- equation: CF2 + F <=> CF3_p
+  rate-constant:
+    A: 5.18506e+11 cm^3/(mol*s)
+    n: 0.4717
+    Ea: 2.886 kJ/mol
+- equation: CF2 + OH <=> CF2OH
+  rate-constant:
+    A: 3.70189e+10 cm^3/(mol*s)
+    n: 0.7539
+    Ea: 3.775 kJ/mol

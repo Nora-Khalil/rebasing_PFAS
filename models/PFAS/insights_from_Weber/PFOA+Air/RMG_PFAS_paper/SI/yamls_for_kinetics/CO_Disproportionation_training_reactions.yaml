@@ -1,0 +1,100 @@
+- equation: HCO + CH2F <=> CO + CH3F
+  rate-constant:
+    A: 9e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + CHF2 <=> CO + CH2F2
+  rate-constant:
+    A: 9e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + CF3 <=> CO + CHF3
+  rate-constant:
+    A: 9e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + F <=> CO + HF
+  rate-constant:
+    A: 1e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + Br <=> BrH + CO
+  rate-constant:
+    A: 1.7e+14 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + BrO <=> BrHO + CO
+  rate-constant:
+    A: 5e+12 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + ClO <=> ClHO + CO
+  rate-constant:
+    A: 3.2e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CClO + H <=> ClH + CO
+  rate-constant:
+    A: 1e+14 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CClO + O <=> ClO-2 + CO
+  rate-constant:
+    A: 1e+14 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CClO + [OH]_r1 <=> ClHO-2 + CO
+  rate-constant:
+    A: 3.3e+12 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CClO + Cl <=> Cl2 + CO
+  rate-constant:
+    A: 6.6e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 1400 cal/mol
+- equation: CFO + H <=> FH-2 + CO
+  rate-constant:
+    A: 2.5e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: HCO + CF => CHF-2 + CO
+  rate-constant:
+    A: 1e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CFO-2 + CFO <=> CF2O + CO
+  rate-constant:
+    A: 2.23e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 318 cal/mol
+- equation: CO + F2 <=> F + CFO
+  rate-constant:
+    A: 4.7e+11 cm^3/(mol*s)
+    n: 0.0
+    Ea: 13500 cal/mol
+- equation: HCO + Cl <=> ClH-2 + CO
+  rate-constant:
+    A: 1.7e+14 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol
+- equation: CClO + Cl <=> Cl2 + CO
+  rate-constant:
+    A: 4e+14 cm^3/(mol*s)
+    n: 0.0
+    Ea: 800 cal/mol
+- equation: HCO + C2Cl2F3 <=> C2HCl2F3 + CO
+  rate-constant:
+    A: 2e+12 cm^3/(mol*s)
+    n: 0.0
+    Ea: 1500 cal/mol
+- equation: CFO-2 + CClO <=> CClFO + CO
+  rate-constant:
+    A: 3e+12 cm^3/(mol*s)
+    n: 0.0
+    Ea: 2000 cal/mol
+- equation: HCO + CCl2F <=> CHCl2F + CO
+  rate-constant:
+    A: 1.5e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 cal/mol

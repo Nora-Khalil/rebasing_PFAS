@@ -1,0 +1,35 @@
+- equation: C2HF2O2 <=> CHF2 + CO2
+  rate-constant:
+    A: 5.85e-12 s^-1
+    n: 6.85
+    Ea: 32530.5 cal/mol
+- equation: C3HF4O2 <=> C2HF4 + CO2
+  rate-constant:
+    A: 2.54e-21 s^-1
+    n: 9.6
+    Ea: 27803.9 cal/mol
+- equation: C3HF4O3 <=> C2HF4O + CO2
+  rate-constant:
+    A: 1.15e-12 s^-1
+    n: 7.1
+    Ea: 32688.4 cal/mol
+- equation: C4HF6O3 <=> C3HF6O + CO2
+  rate-constant:
+    A: 2.1e-13 s^-1
+    n: 7.32
+    Ea: 32895.4 cal/mol
+- equation: C2H3O2 <=> CH3 + CO2
+  rate-constant:
+    A: 2.38e-17 s^-1
+    n: 8.39
+    Ea: 24346.7 cal/mol
+- equation: C3H5O3 <=> C2H5O + CO2
+  rate-constant:
+    A: 181000 s^-1
+    n: 2.09
+    Ea: 42692.4 cal/mol
+- equation: C4H7O3 <=> C3H7O + CO2
+  rate-constant:
+    A: 1.36e+06 s^-1
+    n: 1.81
+    Ea: 43859.2 cal/mol

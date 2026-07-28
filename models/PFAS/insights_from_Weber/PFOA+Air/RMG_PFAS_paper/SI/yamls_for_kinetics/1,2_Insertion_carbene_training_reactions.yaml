@@ -1,0 +1,255 @@
+- equation: Br2 + CF2_r1 <=> CBr2F2
+  rate-constant:
+    A: 3.2e+09 cm^3/(mol*s)
+    n: 0.0
+    Ea: 1030 cal/mol
+- equation: CHClF2 <=> CF2_r1 + ClH
+  rate-constant:
+    A: 1.41e+13 s^-1
+    n: 0.0
+    Ea: 53465 cal/mol
+- equation: BrH + CF2_r1 <=> CHBrF2
+  rate-constant:
+    A: 2.14e+11 cm^3/(mol*s)
+    n: 0.0
+    Ea: 9560 cal/mol
+- equation: CH3Cl <=> CH2 + ClH
+  rate-constant:
+    A: 1.1e+28 s^-1
+    n: -5.15
+    Ea: 109670 cal/mol
+- equation: CHCl3 <=> CCl2 + ClH
+  rate-constant:
+    A: 5.2e+12 s^-1
+    n: 0.0
+    Ea: 51500 cal/mol
+- equation: Cl2 + CCl2 <=> CCl4
+  rate-constant:
+    A: 3e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 6000 cal/mol
+- equation: Cl2 + CF2_r1 <=> CCl2F2
+  rate-constant:
+    A: 3.21e+08 cm^3/(mol*s)
+    n: 0.0
+    Ea: 2110 cal/mol
+- equation: CHCl3-2 + CCl2 <=> C2HCl5
+  rate-constant:
+    A: 7.39e+11 cm^3/(mol*s)
+    n: 0.0
+    Ea: 11900 cal/mol
+- equation: CHCl + ClH <=> CH2Cl2
+  rate-constant:
+    A: 1e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 kJ/mol
+- equation: CHCl + H2_r23 <=> CH3Cl-2
+  rate-constant:
+    A: 1.39739e+06 cm^3/(mol*s)
+    n: 2.08325
+    Ea: 9.93074 kJ/mol
+- equation: CF2_r1 + CF4_r23 <=> FC(F)(F)C(F)(F)F_p123
+  rate-constant:
+    A: 5.34327 cm^3/(mol*s)
+    n: 3.3552
+    Ea: 272.197 kJ/mol
+- equation: CHBr + BrH <=> CH2Br2
+  rate-constant:
+    A: 1e+13 cm^3/(mol*s)
+    n: 0.0
+    Ea: 0 kJ/mol
+- equation: CF2_r1 + FH <=> CHF3
+  rate-constant:
+    A: 0.00398081 cm^3/(mol*s)
+    n: 4.16158
+    Ea: 55.7474 kJ/mol
+- equation: CHF_r1 + FH <=> CH2F2
+  rate-constant:
+    A: 9488.44 cm^3/(mol*s)
+    n: 2.40423
+    Ea: -1.8086 kJ/mol
+- equation: CHF_r1 + H2_r23 <=> CF_p123
+  rate-constant:
+    A: 2.13948e+06 cm^3/(mol*s)
+    n: 1.96174
+    Ea: 10.3842 kJ/mol
+- equation: CF2_r1 + H2_r23 <=> FCF_p123
+  rate-constant:
+    A: 0.00326413 cm^3/(mol*s)
+    n: 4.30786
+    Ea: 109.478 kJ/mol
+- equation: CHBr + H2_r23 <=> CH3Br
+  rate-constant:
+    A: 1.50896e+06 cm^3/(mol*s)
+    n: 2.11145
+    Ea: 7.35429 kJ/mol
+- equation: C2H4ClF <=> C2H3F + ClH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 73 kcal/mol
+- equation: C2H4ClF-2 <=> C2H3Cl + FH
+  rate-constant:
+    A: 6.97e+14 s^-1
+    n: 0.0
+    Ea: 75.5 kcal/mol
+- equation: C2H4BrF <=> C2H3F + BrH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 65.8 kcal/mol
+- equation: C2H3BrF2 <=> C2H2F2 + BrH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 70.7 kcal/mol
+- equation: C2H2BrF3 <=> C2HF3 + BrH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 75.5 kcal/mol
+- equation: C2HBrF4 <=> C2F4 + BrH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 77.3 kcal/mol
+- equation: C3H6BrF <=> C3H5F + BrH
+  rate-constant:
+    A: 1.39e+15 s^-1
+    n: 0.0
+    Ea: 66 kcal/mol
+- equation: C2H4F2 <=> C2H3F + FH
+  rate-constant:
+    A: 6.97e+14 s^-1
+    n: 0.0
+    Ea: 74 kcal/mol
+- equation: C2H3F3 <=> C2H2F2 + FH
+  rate-constant:
+    A: 6.97e+14 s^-1
+    n: 0.0
+    Ea: 77 kcal/mol
+- equation: C2H2F4 <=> C2HF3 + FH
+  rate-constant:
+    A: 6.97e+14 s^-1
+    n: 0.0
+    Ea: 84 kcal/mol
+- equation: C2HF5 <=> C2F4 + FH
+  rate-constant:
+    A: 6.97e+14 s^-1
+    n: 0.0
+    Ea: 85 kcal/mol
+- equation: C2H3Br + CH4 <=> C3H7Br
+  rate-constant:
+    A: 11.7012 cm^3/(mol*s)
+    n: 3.16987
+    Ea: 35.1917 kJ/mol
+- equation: C2H3Cl + CH4 <=> C3H7Cl
+  rate-constant:
+    A: 8.96195 cm^3/(mol*s)
+    n: 3.20888
+    Ea: 40.549 kJ/mol
+- equation: C2H3F + CH4 <=> C3H7F
+  rate-constant:
+    A: 1.33549 cm^3/(mol*s)
+    n: 3.38172
+    Ea: 55.0573 kJ/mol
+- equation: CHF_r1 + CH3Br-2 <=> C2H4BrF-2
+  rate-constant:
+    A: 30.1249 cm^3/(mol*s)
+    n: 3.17037
+    Ea: 120.81 kJ/mol
+- equation: CF2_r1 + CH3Br-2 <=> C2H3BrF2-2
+  rate-constant:
+    A: 7.43831 cm^3/(mol*s)
+    n: 3.35156
+    Ea: 209.26 kJ/mol
+- equation: CHF_r1 + CH3F <=> C2H4F2-2
+  rate-constant:
+    A: 4.96165 cm^3/(mol*s)
+    n: 3.30609
+    Ea: 133.548 kJ/mol
+- equation: CHF_r1 + CH3Cl-3 <=> C2H4ClF-3
+  rate-constant:
+    A: 17.8425 cm^3/(mol*s)
+    n: 3.22746
+    Ea: 130.179 kJ/mol
+- equation: CF2_r1 + CH4 <=> C2H4F2-3
+  rate-constant:
+    A: 0.000267207 cm^3/(mol*s)
+    n: 4.72997
+    Ea: 129.265 kJ/mol
+- equation: CF2_r1 + H2O <=> CH2F2O
+  rate-constant:
+    A: 3.52789e-06 cm^3/(mol*s)
+    n: 5.02686
+    Ea: 72.5674 kJ/mol
+- equation: CHF_r1 + CH4 <=> C2H5F
+  rate-constant:
+    A: 111.983 cm^3/(mol*s)
+    n: 3.10993
+    Ea: 26.3876 kJ/mol
+- equation: CF2_r1 + CH3F <=> C2H3F3-2
+  rate-constant:
+    A: 0.6158 cm^3/(mol*s)
+    n: 3.54561
+    Ea: 195.225 kJ/mol
+- equation: CHF_r1 + H2O <=> CH3FO
+  rate-constant:
+    A: 9.34896 cm^3/(mol*s)
+    n: 3.15288
+    Ea: 2.84581 kJ/mol
+- equation: CF2_r1 + CH3Cl-3 <=> C2H3ClF2
+  rate-constant:
+    A: 3.42311 cm^3/(mol*s)
+    n: 3.42841
+    Ea: 214.884 kJ/mol
+- equation: CHF_r1 + C2H6 <=> C3H7F-2
+  rate-constant:
+    A: 5.7066 cm^3/(mol*s)
+    n: 3.19155
+    Ea: 216.984 kJ/mol
+- equation: CF2_r1 + C2H6 <=> C3H6F2
+  rate-constant:
+    A: 0.222791 cm^3/(mol*s)
+    n: 3.59921
+    Ea: 320.496 kJ/mol
+- equation: CHF_r1 + CH4O <=> C2H5FO
+  rate-constant:
+    A: 0.212553 cm^3/(mol*s)
+    n: 3.34134
+    Ea: 111.339 kJ/mol
+- equation: CF2_r1 + CH4O <=> C2H4F2O
+  rate-constant:
+    A: 0.140908 cm^3/(mol*s)
+    n: 3.45227
+    Ea: 176.699 kJ/mol
+- equation: CH2 + CH4O <=> C2H6O
+  rate-constant:
+    A: 12.6474 cm^3/(mol*s)
+    n: 2.95311
+    Ea: 59.8071 kJ/mol
+- equation: CH2 + C2H6 <=> C3H8
+  rate-constant:
+    A: 166.864 cm^3/(mol*s)
+    n: 2.82973
+    Ea: 154.574 kJ/mol
+- equation: CBr2 + H2O <=> CH2Br2O
+  rate-constant:
+    A: 0.00335251 cm^3/(mol*s)
+    n: 4.20006
+    Ea: 44.8276 kJ/mol
+- equation: CBr2 + CH4 <=> C2H4Br2
+  rate-constant:
+    A: 2.19874 cm^3/(mol*s)
+    n: 3.52855
+    Ea: 62.1777 kJ/mol
+- equation: CCl2 + CH4 <=> C2H4Cl2
+  rate-constant:
+    A: 1.33592 cm^3/(mol*s)
+    n: 3.60759
+    Ea: 71.667 kJ/mol
+- equation: CCl2 + H2O <=> CH2Cl2O
+  rate-constant:
+    A: 0.00446709 cm^3/(mol*s)
+    n: 4.16722
+    Ea: 48.7822 kJ/mol
